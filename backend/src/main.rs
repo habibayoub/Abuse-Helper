@@ -4,6 +4,24 @@ use deadpool_postgres::Pool;
 mod customer;
 mod postgres;
 
+
+#[derive(serde::Deserialize)]
+pub struct LoginForm {
+    pub username: String,
+    pub password: String
+}
+
+#[post("/authenticate")]
+async fn authenticate(
+    pool: web::Data<Pool>,
+    form: web::Json<LoginForm>,
+) -> HttpResponse {
+    let credentials = form.credentials.clone();
+
+    // test credentials against AD and return 'status' key with values true/false
+    
+}
+
 #[get("/customers")]
 async fn list_customers(pool: web::Data<Pool>) -> HttpResponse {
     let client = match pool.get().await {

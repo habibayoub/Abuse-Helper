@@ -4,6 +4,7 @@ use tokio_postgres::{Error, GenericClient, Row};
 pub struct EmailForm {
     pub email: String,
 }
+
 #[derive(Debug, serde::Serialize)]
 pub struct Customer {
     pub id: i32,
