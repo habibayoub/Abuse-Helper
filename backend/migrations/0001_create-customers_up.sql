@@ -1,0 +1,5 @@
+CREATE TABLE customers (
+  id SERIAL PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL
+);
+
