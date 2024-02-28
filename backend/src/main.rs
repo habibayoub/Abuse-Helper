@@ -5,20 +5,6 @@ mod routes;
 use actix_web::{web, App, HttpServer};
 use routes::customer::{find_customer, list_customers};
 
-#[derive(serde::Deserialize)]
-pub struct LoginForm {
-    pub username: String,
-    pub password: String,
-}
-
-// #[post("/authenticate")]
-// async fn authenticate(pool: web::Data<Pool>, form: web::Json<LoginForm>) -> HttpResponse {
-//     let username = form.username.clone();
-//     let password = form.password.clone();
-
-//     // test credentials against AD and return 'status' key with values true/false
-// }
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
