@@ -27,6 +27,7 @@ impl Customer {
 
         Ok(rows.into_iter().map(Customer::from).collect())
     }
+
     pub async fn find_by_email<C: GenericClient>(
         client: &C,
         email: &str,
