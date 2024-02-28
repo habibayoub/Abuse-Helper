@@ -3,7 +3,7 @@ mod postgres;
 mod routes;
 
 use actix_web::{web, App, HttpServer};
-use routes::customer;
+use routes::customer::{find_customer, list_customers};
 
 #[derive(serde::Deserialize)]
 pub struct LoginForm {
@@ -31,8 +31,8 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(pg_pool.clone()))
             // .service(authenticate)
-            .service(customer::list_customers)
-            .service(customer::find_customer)
+            .service(list_customers)
+            .service(find_customer)
     })
     .bind(&address)?
     .run()
