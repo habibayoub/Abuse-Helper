@@ -4,7 +4,7 @@ import CustomerForm from "./components/Search";
 import Login from "./components/Login";
 
 function App() {
-  const [authenticated, setAuthenticated] = useState( true );
+  const [authenticated, setAuthenticated] = useState( false );
 
   const [customerCount, setCustomerCount] = useState();
   const [customersList, setCustomersList] = useState();
