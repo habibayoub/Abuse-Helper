@@ -1,21 +1,21 @@
 import React, { useState } from "react";
 
-function Login(props) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+function Login( props ) {
+  const [username, setUsername] = useState( "" );
+  const [password, setPassword] = useState( "" );
 
-  const handleLogin = async (e) => {
+  const handleLogin = async ( e ) => {
     e.preventDefault();
 
-    fetch("/api/authenticate", {
+    fetch( "/authenticate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    })
-      .then((response) => response.json())
-      .then((response) => {
-        props.setAuthenticated(response["status"] === "success");
-      });
+      body: JSON.stringify( { username, password } ),
+    } )
+      .then( ( response ) => response.json() )
+      .then( ( response ) => {
+        props.setAuthenticated( response["status"] === "success" );
+      } );
   };
 
   return (
@@ -28,7 +28,7 @@ function Login(props) {
             type="text"
             id="username"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={( e ) => setUsername( e.target.value )}
             required
           />
         </div>
@@ -38,7 +38,7 @@ function Login(props) {
             type="password"
             id="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={( e ) => setPassword( e.target.value )}
             required
           />
         </div>

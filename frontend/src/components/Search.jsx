@@ -8,7 +8,7 @@ function CustomerForm() {
         event.preventDefault();
 
         try {
-            const response = await fetch( '/api/find_customer', {
+            const response = await fetch( '/api/private/find_customer', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

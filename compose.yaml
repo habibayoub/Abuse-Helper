@@ -25,6 +25,8 @@ services:
     networks:
       - client-side
       - server-side
+    ports:
+      - 8000:8000
     volumes:
       - ./backend/src:/code/src
       - backend-cache:/code/target
