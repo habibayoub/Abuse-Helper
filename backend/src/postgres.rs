@@ -4,21 +4,21 @@ use tokio_postgres_migration::Migration;
 
 const SCRIPTS_UP: [(&str, &str); 4] = [
     (
-    "0001_create-customers",
-    include_str!("../migrations/0001_create-customers_up.sql"),
-),
-(
-    "0002_add-dummy-customer",
-    include_str!("../migrations/0002_add-dummy-customer.sql"),
-),
-(
-    "0003_create-nctns",
-    include_str!("../migrations/0003_create-nctns.sql"),
-),
-(
-    "0004_add-dummy-nctns",
-    include_str!("../migrations/0004_add-dummy-nctns.sql"),
-)
+        "0001_create-customers",
+        include_str!("../migrations/0001_create-customers_up.sql"),
+    ),
+    (
+        "0002_add-dummy-customer",
+        include_str!("../migrations/0002_add-dummy-customer.sql"),
+    ),
+    (
+        "0003_create-nctns",
+        include_str!("../migrations/0003_create-nctns.sql"),
+    ),
+    (
+        "0004_add-dummy-nctns",
+        include_str!("../migrations/0004_add-dummy-nctns.sql"),
+    ),
 ];
 
 fn create_config() -> Config {
