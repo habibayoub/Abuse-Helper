@@ -1,7 +1,7 @@
 use actix_web::{get, post, web, HttpResponse};
 use deadpool_postgres::Pool;
 
-use crate::models::customer::{Customer, EmailForm};
+use crate::models::customer::{Customer, LookUpForm};
 
 #[get("/customers")]
 pub async fn list_customers(pool: web::Data<Pool>) -> HttpResponse {
@@ -22,7 +22,7 @@ pub async fn list_customers(pool: web::Data<Pool>) -> HttpResponse {
 }
 
 #[post("/find_customer")]
-pub async fn find_customer(pool: web::Data<Pool>, form: web::Json<EmailForm>) -> HttpResponse {
+pub async fn find_customer(pool: web::Data<Pool>, form: web::Json<LookUpForm>) -> HttpResponse {
     let client = match pool.get().await {
         Ok(client) => client,
         Err(err) => {
@@ -30,9 +30,22 @@ pub async fn find_customer(pool: web::Data<Pool>, form: web::Json<EmailForm>) ->
             return HttpResponse::InternalServerError().json("unable to get postgres client");
         }
     };
-    let email = form.email.clone();
-    match Customer::find_by_email(&**client, &email).await {
-        Ok(customer) => HttpResponse::Ok().json(customer),
-        Err(_) => HttpResponse::InternalServerError().json("customer not found"),
+
+    match (form.email.clone(), form.ip.clone()) {
+    (Some(email), _) => {
+            match Customer::find_by_email(&**client, &email).await {
+                Ok(customer) => return HttpResponse::Ok().json(customer),
+                Err(_) => return HttpResponse::InternalServerError().json("customer not found"),
+            };
+    },
+    (_, Some(ip)) => {
+            match Customer::find_by_ip(&**client, &ip).await {
+                Ok(customer) => HttpResponse::Ok().json(customer),
+                Err(_) => HttpResponse::InternalServerError().json("customer not found"),
+            }
+    },
+    _ => HttpResponse::InternalServerError().json("please enter a valid lookup value [email | ip]")
     }
+
+
 }

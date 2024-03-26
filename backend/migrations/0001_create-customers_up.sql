@@ -1,5 +1,6 @@
 CREATE TABLE customers (
   id SERIAL PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL
+  email TEXT UNIQUE NOT NULL,
+  ip VARCHAR(255)
 );
 
