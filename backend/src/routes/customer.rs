@@ -31,15 +31,21 @@ pub async fn find_customer(pool: web::Data<Pool>, form: web::Json<LookUpForm>) -
         }
     };
 
-    match (form.email.clone(), form.ip.clone()) {
-    (Some(email), _) => {
+    match (form.email.clone(), form.ip.clone(), form.id.clone()) {
+    (Some(email), _, _) => {
             match Customer::find_by_email(&**client, &email).await {
                 Ok(customer) => return HttpResponse::Ok().json(customer),
                 Err(_) => return HttpResponse::InternalServerError().json("customer not found"),
             };
     },
-    (_, Some(ip)) => {
+    (_, Some(ip), _) => {
             match Customer::find_by_ip(&**client, &ip).await {
+                Ok(customer) => return HttpResponse::Ok().json(customer),
+                Err(_) => return HttpResponse::InternalServerError().json("customer not found"),
+            }
+    },
+    (_, _, Some(id)) => {
+            match Customer::find_by_id(&**client, id).await {
                 Ok(customer) => HttpResponse::Ok().json(customer),
                 Err(_) => HttpResponse::InternalServerError().json("customer not found"),
             }

@@ -4,6 +4,7 @@ use tokio_postgres::{Error, GenericClient, Row};
 pub struct LookUpForm {
     pub email: Option<String>,
     pub ip: Option<String>,
+    pub id: Option<i32>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -51,6 +52,18 @@ impl Customer {
             .prepare("SELECT id, email, ip FROM customers WHERE ip = $1")
             .await?;
         let row = client.query_one(&stmt, &[&ip]).await?;
+
+        Ok(Customer::from(row))
+    }
+
+    pub async fn find_by_id<C: GenericClient>(
+        client: &C,
+        id: i32,
+    ) -> Result<Customer, Error> {
+        let stmt = client
+            .prepare("SELECT id, email, ip FROM customers WHERE id = $1")
+            .await?;
+        let row = client.query_one(&stmt, &[&id]).await?;
 
         Ok(Customer::from(row))
     }
