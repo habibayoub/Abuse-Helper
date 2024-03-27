@@ -4,6 +4,7 @@ FROM rust:buster AS base
 ENV USER=root
 ENV ROCKET_ADDRESS=0.0.0.0
 ENV ROCKET_ENV=development
+ENV RUST_LOG=debug
 
 WORKDIR /code
 RUN cargo init
@@ -41,6 +42,7 @@ RUN cargo build --release --offline
 FROM debian:buster-slim
 
 ENV ROCKET_ENV=production
+ENV RUST_LOG=debug
 
 EXPOSE 8000
 

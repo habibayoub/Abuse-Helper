@@ -5,7 +5,10 @@ mod routes;
 use actix_web::{get, web, App, HttpResponse, HttpServer};
 use actix_web_middleware_keycloak_auth::{AlwaysReturnPolicy, DecodingKey, KeycloakAuth, Role};
 use dotenv::dotenv;
-use routes::customer::{find_customer, list_customers};
+use routes::{
+    customer::{find_customer, list_customers},
+    util::whois_lookup,
+};
 
 #[get("status")]
 async fn api_status() -> HttpResponse {
@@ -46,6 +49,7 @@ async fn main() -> std::io::Result<()> {
                     .service(list_customers)
                     .service(find_customer),
             )
+            .service(web::scope("/util").service(whois_lookup))
     })
     .bind(&address)?
     .run()
