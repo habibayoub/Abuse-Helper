@@ -3,8 +3,8 @@ use deadpool_postgres::Pool;
 
 use crate::models::customer::{Customer, LookUpForm};
 
-#[get("/customers")]
-pub async fn list_customers(pool: web::Data<Pool>) -> HttpResponse {
+#[get("/list")]
+pub async fn list(pool: web::Data<Pool>) -> HttpResponse {
     let client = match pool.get().await {
         Ok(client) => client,
         Err(err) => {
@@ -21,8 +21,8 @@ pub async fn list_customers(pool: web::Data<Pool>) -> HttpResponse {
     }
 }
 
-#[post("/find_customer")]
-pub async fn find_customer(pool: web::Data<Pool>, form: web::Json<LookUpForm>) -> HttpResponse {
+#[post("/find")]
+pub async fn find(pool: web::Data<Pool>, form: web::Json<LookUpForm>) -> HttpResponse {
     let client = match pool.get().await {
         Ok(client) => client,
         Err(err) => {

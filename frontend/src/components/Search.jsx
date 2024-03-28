@@ -10,7 +10,7 @@ function CustomerForm() {
         event.preventDefault();
 
         try {
-            const response = await fetch( '/api/private/find_customer', {
+            const response = await fetch( '/api/customer/find', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -33,7 +33,7 @@ function CustomerForm() {
         event.preventDefault();
 
         try {
-            const response = await fetch( '/api/private/find_customer', {
+            const response = await fetch( '/api/customer/find', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -56,7 +56,7 @@ function CustomerForm() {
         event.preventDefault();
 
         try {
-            const response = await fetch( '/api/private/find_customer', {
+            const response = await fetch( '/api/customer/find', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -16,7 +16,7 @@ function App() {
   };
 
   useEffect( () => {
-    fetch( "/api/private/customers" )
+    fetch( "/api/customers/list" )
       .then( ( res ) => res.json() )
       .then( ( res ) => {
         setCustomerCount( `Found ${res.length} customers` );

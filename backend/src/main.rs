@@ -6,8 +6,9 @@ use actix_web::{get, web, App, HttpResponse, HttpServer};
 use actix_web_middleware_keycloak_auth::{AlwaysReturnPolicy, DecodingKey, KeycloakAuth, Role};
 use dotenv::dotenv;
 use routes::{
-    customer::{find_customer, list_customers},
+    customer,
     util::whois_lookup,
+    email
 };
 
 #[get("status")]
@@ -44,12 +45,13 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(pg_pool.clone()))
             .service(api_status)
             .service(
-                web::scope("/private")
+                web::scope("/customer")
                     // .wrap(keycloak_auth)
-                    .service(list_customers)
-                    .service(find_customer),
+                    .service(customer::list)
+                    .service(customer::find),
             )
             .service(web::scope("/util").service(whois_lookup))
+            .service(web::scope("/email").service(email::send))
     })
     .bind(&address)?
     .run()
