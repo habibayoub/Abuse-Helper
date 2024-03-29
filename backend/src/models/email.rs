@@ -1,6 +1,8 @@
+use lettre::message::Mailbox;
+
 #[derive(serde::Deserialize)]
 pub struct Email {
+    pub recipient: Mailbox,
     pub subject: String,
-    pub recipient: String,
     pub body: String,
 }
