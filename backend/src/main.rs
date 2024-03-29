@@ -1,15 +1,12 @@
+mod common;
 mod models;
 mod postgres;
 mod routes;
 
 use actix_web::{get, web, App, HttpResponse, HttpServer};
-use actix_web_middleware_keycloak_auth::{AlwaysReturnPolicy, DecodingKey, KeycloakAuth, Role};
+// use actix_web_middleware_keycloak_auth::{AlwaysReturnPolicy, DecodingKey, KeycloakAuth, Role};
 use dotenv::dotenv;
-use routes::{
-    customer,
-    util::whois_lookup,
-    email
-};
+use routes::{customer, email, util::whois};
 
 #[get("status")]
 async fn api_status() -> HttpResponse {
@@ -50,7 +47,7 @@ async fn main() -> std::io::Result<()> {
                     .service(customer::list)
                     .service(customer::find),
             )
-            .service(web::scope("/util").service(whois_lookup))
+            .service(web::scope("/util").service(whois))
             .service(web::scope("/email").service(email::send))
     })
     .bind(&address)?

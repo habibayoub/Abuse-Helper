@@ -2,7 +2,7 @@ use actix_web::{get, web, HttpResponse};
 use whois_rust::{WhoIs, WhoIsLookupOptions};
 
 #[get("/whois/{address}")]
-pub async fn whois_lookup(path: web::Path<String>) -> HttpResponse {
+pub async fn whois(path: web::Path<String>) -> HttpResponse {
     let whois = match WhoIs::from_path_async("./data/whois_servers.json").await {
         Ok(whois) => whois,
         Err(err) => {
