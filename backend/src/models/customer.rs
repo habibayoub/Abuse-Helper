@@ -26,7 +26,9 @@ impl From<Row> for Customer {
 
 impl Customer {
     pub async fn all<C: GenericClient>(client: &C) -> Result<Vec<Customer>, Error> {
-        let stmt = client.prepare("SELECT id, email, ip FROM customers").await?;
+        let stmt = client
+            .prepare("SELECT id, email, ip FROM customers")
+            .await?;
         let rows = client.query(&stmt, &[]).await?;
 
         Ok(rows.into_iter().map(Customer::from).collect())
@@ -44,10 +46,7 @@ impl Customer {
         Ok(Customer::from(row))
     }
 
-    pub async fn find_by_ip<C: GenericClient>(
-        client: &C,
-        ip: &str,
-    ) -> Result<Customer, Error> {
+    pub async fn find_by_ip<C: GenericClient>(client: &C, ip: &str) -> Result<Customer, Error> {
         let stmt = client
             .prepare("SELECT id, email, ip FROM customers WHERE ip = $1")
             .await?;
@@ -56,10 +55,7 @@ impl Customer {
         Ok(Customer::from(row))
     }
 
-    pub async fn find_by_id<C: GenericClient>(
-        client: &C,
-        id: i32,
-    ) -> Result<Customer, Error> {
+    pub async fn find_by_id<C: GenericClient>(client: &C, id: i32) -> Result<Customer, Error> {
         let stmt = client
             .prepare("SELECT id, email, ip FROM customers WHERE id = $1")
             .await?;
@@ -67,5 +63,4 @@ impl Customer {
 
         Ok(Customer::from(row))
     }
-    
 }
