@@ -5,4 +5,5 @@ pub struct Email {
     pub recipient: Mailbox,
     pub subject: String,
     pub body: String,
+    // attachment
 }

@@ -9,7 +9,9 @@ const root = createRoot(document.getElementById("root")!);
 root.render(
   <React.StrictMode>
     <NextUIProvider>
-      <App />
+      <main className="dark text-foreground bg-background">
+        <App />
+      </main>
     </NextUIProvider>
   </React.StrictMode>,
 );

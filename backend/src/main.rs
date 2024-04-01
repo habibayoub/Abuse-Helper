@@ -4,9 +4,10 @@ mod postgres;
 mod routes;
 
 use actix_web::{get, web, App, HttpResponse, HttpServer};
+// use std::{thread, time::Duration};
 // use actix_web_middleware_keycloak_auth::{AlwaysReturnPolicy, DecodingKey, KeycloakAuth, Role};
 use dotenv::dotenv;
-use routes::{customer, email, util::whois};
+use routes::{customer, email, nctns, util};
 
 #[get("status")]
 async fn api_status() -> HttpResponse {
@@ -21,6 +22,13 @@ async fn main() -> std::io::Result<()> {
 
     let pg_pool = postgres::create_pool();
     postgres::migrate_up(&pg_pool).await;
+
+    // actix_rt::spawn(async {
+    //     loop {
+    //         email::poll().await;
+    //         tokio::time::sleep(Duration::from_secs(60)).await;
+    //     }
+    // });
 
     let address = std::env::var("ADDRESS").unwrap_or_else(|_| "127.0.0.1:8000".into());
 
@@ -47,7 +55,12 @@ async fn main() -> std::io::Result<()> {
                     .service(customer::list)
                     .service(customer::find),
             )
-            .service(web::scope("/util").service(whois))
+            .service(
+                web::scope("/nctns")
+                    // .wrap(keycloak_auth)
+                    .service(nctns::list),
+            )
+            .service(web::scope("/util").service(util::whois))
             .service(web::scope("/email").service(email::send))
     })
     .bind(&address)?
