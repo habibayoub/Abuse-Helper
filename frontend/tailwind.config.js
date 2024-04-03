@@ -1,4 +1,3 @@
-const { nextui } = require( "@nextui-org/theme" );
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -11,6 +10,6 @@ module.exports = {
   theme: {
 
   },
-  plugins: [require( "tailwindcss-animate" ), nextui( { addCommonColors: true } )],
+  plugins: [require( "tailwindcss-animate" )],
 }
 

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Table, TableHeader, TableBody, TableCell, getKeyValue, TableColumn, TableRow } from "@nextui-org/react";
 
 interface Customer {
     id: number;
@@ -160,36 +159,9 @@ const Dashboard: React.FC = () => {
                 {status}
 
                 <p className="font-semibold">Customers</p>
-                {customerCols &&
-                    <Table>
-                        <TableHeader columns={customerCols}>
-                            {(column) => <TableColumn key={column.key}>{column.label}</TableColumn>}
-                        </TableHeader >
-                        <TableBody items={customerRows}>
-                            {(item) => (
-                                <TableRow key={item.key}>
-                                    {(columnKey) => <TableCell>{getKeyValue(item, columnKey)}</TableCell>}
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table >
-                }
 
                 <p className="font-semibold">NCTNS</p>
-                {nctnsCols &&
-                    <Table>
-                        <TableHeader columns={nctnsCols}>
-                            {(column) => <TableColumn key={column.key}>{column.label}</TableColumn>}
-                        </TableHeader>
-                        <TableBody items={nctnsRows}>
-                            {(item) => (
-                                <TableRow key={item.key}>
-                                    {(columnKey) => <TableCell>{getKeyValue(item, columnKey)}</TableCell>}
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                }
+
             </div >
         </>
     );

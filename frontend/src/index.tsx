@@ -2,17 +2,17 @@ import React from 'react';
 import './index.css';
 import App from './App';
 import * as serviceWorker from './serviceWorker';
-import { NextUIProvider } from '@nextui-org/react';
 import { createRoot } from 'react-dom/client';
+import '@mantine/core/styles.css';
+import '@mantine/dates/styles.css';
+import '@mantine/dropzone/styles.css';
 
 const root = createRoot(document.getElementById("root")!);
 root.render(
   <React.StrictMode>
-    <NextUIProvider>
-      <main className="dark text-foreground bg-background">
-        <App />
-      </main>
-    </NextUIProvider>
+    <main className="dark text-foreground bg-background">
+      <App />
+    </main>
   </React.StrictMode>,
 );
 

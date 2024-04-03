@@ -31,7 +31,8 @@
   },
   "include": [
     "src",
-    "typings.d.ts",
+    "src/globals.d.ts",
+    "src/typings.d.ts",
     "src/pages"
   ]
 }
