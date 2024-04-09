@@ -55,34 +55,42 @@ interface TableColumnData {
 
 
 const Dashboard: React.FC = () => {
+    // State to store the status of the API
     const [status, setStatus] = useState<string>("");
+    // State to store the customer data
     const [customerRows, setCustomerRows] = useState<CustomerTableRow[]>([]);
     const [customerCols, setCustomerCols] = useState<TableColumnData[]>([]);
     const [nctnsRows, setNCTNSRows] = useState<NCTNSTableRow[]>([]);
     const [nctnsCols, setNCTNSCols] = useState<TableColumnData[]>([]);
 
+    // Fetch the status of the API
     useEffect(() => {
         fetch("/api/status")
             .then((res) => res.json())
             .then((res) => {
+                // Set the status to the response
                 setStatus(JSON.stringify(res));
                 console.log(res);
             })
             .catch(console.error);
     }, []);
 
+    // Fetch the customer data
     useEffect(() => {
         fetch("/api/customer/list")
             .then((res) => res.json())
             .then((data: Customer[]) => {
 
+                // Map the data to include a key
                 const updatedRows: CustomerTableRow[] = data.map((item, index) => ({
                     ...item,
                     key: `${index}`,
                 }));
 
+                // Set the customer data
                 setCustomerRows(updatedRows);
 
+                // Define the columns for the table
                 const columns: TableColumnData[] = [
                     {
                         key: "id",
@@ -98,6 +106,7 @@ const Dashboard: React.FC = () => {
                     },
                 ];
 
+                // Set the columns
                 setCustomerCols(columns);
             })
             .catch(console.error);
@@ -108,13 +117,16 @@ const Dashboard: React.FC = () => {
             .then((res) => res.json())
             .then((data: NCTNS[]) => {
 
+                // Map the data to include a key
                 const updatedRows: NCTNSTableRow[] = data.map((item, index) => ({
                     ...item,
                     key: `${index}`,
                 }));
 
+                // Set the NCTNS data
                 setNCTNSRows(updatedRows);
 
+                // Define the columns for the table
                 const columns: TableColumnData[] = [
                     { key: 'uuid', label: 'UUID' },
                     { key: 'source_time', label: 'Source Time' },
@@ -148,6 +160,7 @@ const Dashboard: React.FC = () => {
                     { key: 'source_feed', label: 'Source Feed' },
                 ];
 
+                // Set the columns
                 setNCTNSCols(columns);
             })
             .catch(console.error);

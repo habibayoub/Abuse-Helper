@@ -1,8 +1,10 @@
 use actix_web::{get, web, HttpResponse};
 use whois_rust::{WhoIs, WhoIsLookupOptions};
 
+/// GET /util/whois/{address} endpoint to lookup a domain's whois record
 #[get("/whois/{address}")]
 pub async fn whois(path: web::Path<String>) -> HttpResponse {
+    // Load the whois servers
     let whois = match WhoIs::from_path_async("./data/whois_servers.json").await {
         Ok(whois) => whois,
         Err(err) => {
@@ -11,6 +13,7 @@ pub async fn whois(path: web::Path<String>) -> HttpResponse {
         }
     };
 
+    // Parse the domain from the path
     let address = path.into_inner();
     let lookup = match WhoIsLookupOptions::from_string(&address) {
         Ok(lookup) => lookup,
@@ -21,6 +24,7 @@ pub async fn whois(path: web::Path<String>) -> HttpResponse {
         }
     };
 
+    // Fetch the whois record
     match whois.lookup_async(lookup).await {
         Ok(record) => HttpResponse::Ok().json(record),
         Err(err) => {

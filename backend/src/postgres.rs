@@ -2,6 +2,7 @@ use deadpool_postgres::{Config, Pool};
 use tokio_postgres::NoTls;
 use tokio_postgres_migration::Migration;
 
+/// Scripts to run for the up migration
 const SCRIPTS_UP: [(&str, &str); 4] = [
     (
         "0001_create-customers",
@@ -21,6 +22,7 @@ const SCRIPTS_UP: [(&str, &str); 4] = [
     ),
 ];
 
+/// Create a new configuration from environment variables
 fn create_config() -> Config {
     let mut cfg = Config::new();
     if let Ok(host) = std::env::var("PG_HOST") {
@@ -38,12 +40,14 @@ fn create_config() -> Config {
     cfg
 }
 
+/// Create a new database pool
 pub fn create_pool() -> Pool {
     create_config()
         .create_pool(NoTls)
         .expect("couldn't create postgres pool")
 }
 
+/// Run the up migrations
 pub async fn migrate_up(pool: &Pool) {
     let mut client = pool.get().await.expect("couldn't get postgres client");
     let migration = Migration::new("migrations".to_string());

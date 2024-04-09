@@ -1,6 +1,7 @@
 use chrono::NaiveDateTime;
 use tokio_postgres::{Error, GenericClient, Row};
 
+/// Struct representing a row in the nctns table.
 #[derive(Debug, serde::Serialize)]
 pub struct NCTNS {
     pub uuid: String,
@@ -35,6 +36,8 @@ pub struct NCTNS {
     pub source_feed: String,
 }
 
+/// Implement the `From<Row>` trait for `NCTNS`.
+/// This allows us to convert a `tokio_postgres::Row` into a `NCTNS`.
 impl From<Row> for NCTNS {
     fn from(row: Row) -> Self {
         Self {
@@ -72,6 +75,8 @@ impl From<Row> for NCTNS {
     }
 }
 
+/// Implement the `NCTNS` struct.
+/// Methods on the `NCTNS` struct allow us to interact with the database.
 impl NCTNS {
     pub async fn all<C: GenericClient + Sync>(client: &C) -> Result<Vec<NCTNS>, Error> {
         let stmt = client
