@@ -35,6 +35,8 @@ async fn send_email(email: Email) -> Result<String, String> {
             .credentials(creds)
             .build();
 
+    // standard template
+
     // Send the email
     match mailer.send(email_payload).await {
         Ok(_) => Ok(format!(
