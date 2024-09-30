@@ -24,7 +24,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Toolti
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement)
 
 // Define the primary color used throughout the dashboard
-const PANTONE_301 = "#003F87"
+const PANTONE_301 = "#0067a4"
 
 /**
  * Dashboard Component
@@ -88,14 +88,14 @@ export default function Dashboard() {
         <div className="flex h-full w-full bg-gray-100">
             {/* Sidebar */}
             <aside className={`bg-white w-64 fixed h-full z-30 border-r border-gray-200 shadow-sm transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 flex flex-col`}>
-                <div className="p-5 flex justify-between items-center border-b border-gray-200">
-                    <h2 className="text-2xl font-bold" style={{ color: PANTONE_301 }}>Abuse Helper</h2>
-                    <Button variant="outline" size="icon" onClick={toggleSidebar} className="lg:hidden">
-                        <X className="h-6 w-6" />
-                    </Button>
+                <div className="p-5 flex flex-col items-center border-b border-gray-200">
+                    <img src="/bell-logo.svg" alt="Bell Logo" className="w-16 h-16 mb-2" />
+                    <h2 className="text-lg font-bold tracking-wider" style={{ color: PANTONE_301 }}>
+                        ABUSE HELPER
+                    </h2>
                 </div>
                 {/* User info added to sidebar */}
-                <div className="p-5 border-b border-gray-200">
+                <div className="py-4 px-5 border-b border-gray-200">
                     <div className="flex items-center space-x-3">
                         <User className="h-6 w-6" style={{ color: PANTONE_301 }} />
                         <div>
@@ -104,10 +104,10 @@ export default function Dashboard() {
                         </div>
                     </div>
                 </div>
-                <nav className="mt-4 flex-grow text-sm">
+                <nav className="mt-2 flex-grow text-sm">
                     <a href="#" className="block py-2 px-4 bg-blue-50 border-r-4" style={{ color: PANTONE_301, borderColor: PANTONE_301 }}>
                         <span className="flex items-center">
-                            <Home className="mr-2" size={18} />
+                            <Home className="mr-3" size={18} />
                             Dashboard
                         </span>
                     </a>
