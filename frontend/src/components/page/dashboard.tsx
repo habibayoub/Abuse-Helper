@@ -13,20 +13,34 @@ import {
     Menu,
     Settings,
     Ticket,
+    User,
     Users,
     X
 } from "lucide-react"
 import { Bar, Pie } from "react-chartjs-2"
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js"
 
+// Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement)
 
+// Define the primary color used throughout the dashboard
 const PANTONE_301 = "#003F87"
 
+/**
+ * Dashboard Component
+ * 
+ * This component represents the main dashboard of the Abuse Helper application.
+ * It includes a sidebar, header, and various data visualization elements.
+ */
 export default function Dashboard() {
+    // State for controlling sidebar visibility on mobile
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    // State for controlling active tab in the Report Statistics section
     const [activeTab, setActiveTab] = useState("year")
 
+    /**
+     * Data for the Report Statistics bar chart
+     */
     const reportStatisticsData = {
         labels: ["2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023"],
         datasets: [
@@ -43,6 +57,9 @@ export default function Dashboard() {
         ]
     }
 
+    /**
+     * Data for the Popular Cities pie chart
+     */
     const popularCitiesData = {
         labels: ["Toronto, ON", "Montreal, QC", "Vancouver, BC", "Calgary, AB", "Ottawa, ON", "Other"],
         datasets: [
@@ -60,6 +77,9 @@ export default function Dashboard() {
         ]
     }
 
+    /**
+     * Toggle sidebar visibility
+     */
     const toggleSidebar = () => {
         setSidebarOpen(!sidebarOpen)
     }
@@ -77,7 +97,7 @@ export default function Dashboard() {
                 {/* User info added to sidebar */}
                 <div className="p-5 border-b border-gray-200">
                     <div className="flex items-center space-x-3">
-                        <img src="/placeholder.svg?height=40&width=40" width={40} height={40} className="rounded-full" alt="User avatar" />
+                        <User className="h-6 w-6" style={{ color: PANTONE_301 }} />
                         <div>
                             <p className="font-semibold">John Doe</p>
                             <p className="text-sm text-gray-500">john.doe@example.com</p>
