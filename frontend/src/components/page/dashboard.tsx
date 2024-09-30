@@ -5,7 +5,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
     AlertTriangle,
     BarChart2,
-    Bell,
     Download,
     Eye,
     FileText,
