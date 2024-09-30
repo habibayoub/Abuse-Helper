@@ -9,7 +9,12 @@ services:
     ports:
       - 3000:3000
     volumes:
-      - ./frontend/src:/code/src:ro
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
 
   backend:
     build:

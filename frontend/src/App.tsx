@@ -1,21 +1,20 @@
-import Dashboard from "./pages/Dashboard";
-import "./App.css";
-import React from "react";
-import Navbar from "./components/Navbar/Navbar";
-import { createTheme, MantineProvider } from '@mantine/core';
-
+// import { useState, useEffect } from 'react'
+import './index.css'
+import Dashboard from '@/components/page/dashboard'
 
 function App() {
+  // const [message, setMessage] = useState<string>('')
+
+  // useEffect(() => {
+  //   fetch('/api/status')
+  //     .then(response => response.text())
+  //     .then(data => setMessage(data))
+  //     .catch(error => console.error('Error:', error))
+  // }, [])
+
   return (
-    <MantineProvider forceColorScheme="dark" >
-      <Navbar />
-      <div className="App">
-        <header className="App-header">
-          <Dashboard />
-        </header>
-      </div>
-    </MantineProvider>
-  );
+    <Dashboard />
+  )
 }
 
-export default App;
+export default App
