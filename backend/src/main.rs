@@ -1,4 +1,5 @@
 mod common;
+mod llm;
 mod models;
 mod postgres;
 mod routes;
