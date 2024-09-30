@@ -15,7 +15,8 @@ import {
     TicketsIcon,
     User,
     Users,
-    X
+    X,
+    LogOut // Add this import
 } from "lucide-react"
 import { Bar, Pie } from "react-chartjs-2"
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js"
@@ -89,8 +90,8 @@ export default function Dashboard() {
             {/* Sidebar */}
             <aside className={`bg-white w-64 fixed h-full z-30 border-r border-gray-200 shadow-sm transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 flex flex-col`}>
                 <div className="p-5 flex flex-col items-center border-b border-gray-200">
-                    <img src="/bell-logo.svg" alt="Bell Logo" className="w-16 h-16 mb-2" />
-                    <h2 className="text-lg font-bold tracking-wider" style={{ color: PANTONE_301 }}>
+                    <img src="/bell-logo.svg" alt="Bell Logo" className="w-16 h-16" />
+                    <h2 className="text-lg font-extrabold tracking-wider" style={{ color: PANTONE_301 }}>
                         ABUSE HELPER
                     </h2>
                 </div>
@@ -148,6 +149,15 @@ export default function Dashboard() {
                         </span>
                     </a>
                 </nav>
+
+                {/* Log out button */}
+                <div className="px-4 py-2 border-t border-gray-200">
+                    <Button variant="outline" className="w-full flex items-center justify-center" onClick={() => console.log('Logout clicked')}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Log Out
+                    </Button>
+                </div>
+
                 {/* Year fine print */}
                 <div className="p-4 text-center text-xs text-gray-500">
                     © {new Date().getFullYear()} Abuse Helper
