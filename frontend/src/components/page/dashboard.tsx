@@ -70,7 +70,7 @@ export default function Dashboard() {
             <aside className={`bg-white w-64 fixed h-full z-30 border-r border-gray-200 shadow-sm transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 flex flex-col`}>
                 <div className="p-5 flex justify-between items-center border-b border-gray-200">
                     <h2 className="text-2xl font-bold" style={{ color: PANTONE_301 }}>Abuse Helper</h2>
-                    <Button variant="ghost" size="icon" onClick={toggleSidebar} className="lg:hidden">
+                    <Button variant="outline" size="icon" onClick={toggleSidebar} className="lg:hidden">
                         <X className="h-6 w-6" />
                     </Button>
                 </div>
@@ -94,7 +94,7 @@ export default function Dashboard() {
                     <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
                         <span className="flex items-center">
                             <AlertTriangle className="mr-2" size={18} />
-                            Abuse Reports
+                            Threat Reports
                         </span>
                     </a>
                     <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
@@ -106,7 +106,13 @@ export default function Dashboard() {
                     <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
                         <span className="flex items-center">
                             <Users className="mr-2" size={18} />
-                            Users
+                            IP Addresses
+                        </span>
+                    </a>
+                    <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
+                        <span className="flex items-center">
+                            <Mail className="mr-2" size={18} />
+                            Emails
                         </span>
                     </a>
                     <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
@@ -134,7 +140,7 @@ export default function Dashboard() {
                 <header className="bg-white bg-opacity-70 backdrop-filter backdrop-blur-md shadow-sm sticky top-0 z-10">
                     <div className="flex items-center justify-between p-4">
                         <div className="flex items-center">
-                            <Button variant="ghost" size="icon" onClick={toggleSidebar} className="lg:hidden">
+                            <Button variant="outline" size="icon" onClick={toggleSidebar} className="lg:hidden">
                                 <Menu className="h-6 w-6" />
                             </Button>
                             <h1 className="text-xl font-semibold ml-4">Dashboard</h1>
@@ -158,7 +164,7 @@ export default function Dashboard() {
                             </Card>
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">IPs Discovered</CardTitle>
+                                    <CardTitle className="text-sm font-medium">IP Addresses Discovered</CardTitle>
                                     <Ticket className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
@@ -278,7 +284,7 @@ export default function Dashboard() {
                                                     <span className="px-2 py-1 font-semibold text-xs leading-tight text-green-700 bg-green-100 rounded-full">Resolved</span>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
+                                                    <Button variant="outline" size="sm"><Eye className="h-4 w-4" /></Button>
                                                 </td>
                                             </tr>
                                             <tr className="text-gray-700">
@@ -290,7 +296,7 @@ export default function Dashboard() {
                                                     <span className="px-2 py-1 font-semibold text-xs leading-tight text-yellow-700 bg-yellow-100 rounded-full">In Progress</span>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
+                                                    <Button variant="outline" size="sm"><Eye className="h-4 w-4" /></Button>
                                                 </td>
                                             </tr>
                                             <tr className="text-gray-700">
@@ -302,7 +308,7 @@ export default function Dashboard() {
                                                     <span className="px-2 py-1 font-semibold text-xs leading-tight text-red-700 bg-red-100 rounded-full">Urgent</span>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
+                                                    <Button variant="outline" size="sm"><Eye className="h-4 w-4" /></Button>
                                                 </td>
                                             </tr>
                                         </tbody>
