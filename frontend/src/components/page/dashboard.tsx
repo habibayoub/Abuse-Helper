@@ -13,6 +13,8 @@ import {
     Menu,
     Settings,
     Ticket,
+    TicketPlus,
+    TicketsIcon,
     User,
     Users,
     X
@@ -185,7 +187,7 @@ export default function Dashboard() {
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium">IP Addresses Discovered</CardTitle>
-                                    <Ticket className="h-4 w-4 text-muted-foreground" />
+                                    <Users className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">3,890</div>
@@ -204,8 +206,8 @@ export default function Dashboard() {
                             </Card>
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">Emails Read</CardTitle>
-                                    <FileText className="h-4 w-4 text-muted-foreground" />
+                                    <CardTitle className="text-sm font-medium">Tickets Created</CardTitle>
+                                    <TicketPlus className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">1,156</div>
@@ -275,9 +277,9 @@ export default function Dashboard() {
                         <Card>
                             <CardHeader>
                                 <div className="flex justify-between items-center">
-                                    <CardTitle className="text-xl font-bold">Recent Reports</CardTitle>
+                                    <CardTitle className="text-xl font-bold">Recent Tickets</CardTitle>
                                     <Button variant="outline" size="sm">
-                                        <Download className="mr-2 h-4 w-4" /> Report
+                                        <TicketsIcon className="mr-2 h-4 w-4" /> Tickets
                                     </Button>
                                 </div>
                             </CardHeader>
@@ -286,7 +288,7 @@ export default function Dashboard() {
                                     <table className="w-full">
                                         <thead>
                                             <tr className="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
-                                                <th className="px-4 py-3">Report ID</th>
+                                                <th className="px-4 py-3">Ticket ID</th>
                                                 <th className="px-4 py-3">IP Address</th>
                                                 <th className="px-4 py-3">Type</th>
                                                 <th className="px-4 py-3">Date</th>
