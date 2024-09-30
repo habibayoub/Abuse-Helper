@@ -1,6 +1,5 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -13,16 +12,15 @@ import {
     Home,
     Mail,
     Menu,
-    Search,
     Settings,
     Ticket,
     Users,
     X
 } from "lucide-react"
-import { Bar } from "react-chartjs-2"
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from "chart.js"
+import { Bar, Pie } from "react-chartjs-2"
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js"
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement)
 
 const PANTONE_301 = "#003F87"
 
@@ -46,18 +44,18 @@ export default function Dashboard() {
         ]
     }
 
-    const topProvincesData = {
-        labels: ["Ontario", "Quebec", "British Columbia", "Alberta", "Manitoba"],
+    const popularCitiesData = {
+        labels: ["Toronto, ON", "Montreal, QC", "Vancouver, BC", "Calgary, AB", "Ottawa, ON", "Other"],
         datasets: [
             {
-                label: "Reports",
-                data: [120, 90, 70, 60, 50],
+                data: [120, 90, 70, 60, 50, 110],
                 backgroundColor: [
                     PANTONE_301,
                     `${PANTONE_301}CC`, // 80% opacity
                     `${PANTONE_301}99`, // 60% opacity
                     `${PANTONE_301}66`, // 40% opacity
                     `${PANTONE_301}33`, // 20% opacity
+                    `${PANTONE_301}1A`, // 10% opacity
                 ],
             }
         ]
@@ -70,14 +68,24 @@ export default function Dashboard() {
     return (
         <div className="flex h-full w-full bg-gray-100">
             {/* Sidebar */}
-            <aside className={`bg-white w-64 fixed h-full z-30 border-r border-gray-200 shadow-sm transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-                <div className="p-4 flex justify-between items-center border-b border-gray-200">
-                    <h2 className="text-2xl font-bold" style={{ color: PANTONE_301 }}>AbuseHelper</h2>
+            <aside className={`bg-white w-64 fixed h-full z-30 border-r border-gray-200 shadow-sm transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 flex flex-col`}>
+                <div className="p-5 flex justify-between items-center border-b border-gray-200">
+                    <h2 className="text-2xl font-bold" style={{ color: PANTONE_301 }}>Abuse Helper</h2>
                     <Button variant="ghost" size="icon" onClick={toggleSidebar} className="lg:hidden">
                         <X className="h-6 w-6" />
                     </Button>
                 </div>
-                <nav className="mt-4">
+                {/* User info added to sidebar */}
+                <div className="p-5 border-b border-gray-200">
+                    <div className="flex items-center space-x-3">
+                        <img src="/placeholder.svg?height=40&width=40" width={40} height={40} className="rounded-full" alt="User avatar" />
+                        <div>
+                            <p className="font-semibold">John Doe</p>
+                            <p className="text-sm text-gray-500">john.doe@example.com</p>
+                        </div>
+                    </div>
+                </div>
+                <nav className="mt-4 flex-grow">
                     <a href="#" className="block py-2 px-4 bg-blue-50 border-r-4" style={{ color: PANTONE_301, borderColor: PANTONE_301 }}>
                         <span className="flex items-center">
                             <Home className="mr-2" size={20} />
@@ -115,30 +123,22 @@ export default function Dashboard() {
                         </span>
                     </a>
                 </nav>
+                {/* Year fine print */}
+                <div className="p-4 text-center text-xs text-gray-500">
+                    © {new Date().getFullYear()} Abuse Helper
+                </div>
             </aside>
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden lg:ml-64">
-                {/* Header */}
-                <header className="bg-white shadow-sm">
+                {/* Header with blurry background */}
+                <header className="bg-white bg-opacity-70 backdrop-filter backdrop-blur-md shadow-sm sticky top-0 z-10">
                     <div className="flex items-center justify-between p-4">
                         <div className="flex items-center">
                             <Button variant="ghost" size="icon" onClick={toggleSidebar} className="lg:hidden">
                                 <Menu className="h-6 w-6" />
                             </Button>
-                            <h1 className="text-xl font-semibold ml-4">Overview</h1>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                            <div className="relative hidden md:block">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                                <Input type="text" placeholder="Search" className="pl-10 pr-4 py-2 rounded-full w-64" />
-                            </div>
-                            <Button variant="ghost" size="icon">
-                                <Bell className="h-6 w-6" />
-                            </Button>
-                            <Button variant="ghost" size="icon">
-                                <img src="/placeholder.svg?height=32&width=32" width={32} height={32} className="rounded-full" alt="User avatar" />
-                            </Button>
+                            <h1 className="text-xl font-semibold ml-4">Dashboard</h1>
                         </div>
                     </div>
                 </header>
@@ -211,24 +211,38 @@ export default function Dashboard() {
                                     <Bar data={reportStatisticsData} options={{ responsive: true, maintainAspectRatio: false }} height={300} />
                                 </CardContent>
                             </Card>
-                            <Card>
+                            <Card className="flex flex-col">
                                 <CardHeader>
                                     <div className="flex justify-between items-center">
-                                        <CardTitle className="text-xl font-bold">Top Provinces</CardTitle>
-                                        <Button variant="ghost" size="sm">Overview</Button>
+                                        <CardTitle className="text-xl font-bold">Popular Cities</CardTitle>
                                     </div>
                                 </CardHeader>
-                                <CardContent>
-                                    <Bar data={topProvincesData} options={{
-                                        indexAxis: 'y',
-                                        responsive: true,
-                                        maintainAspectRatio: false,
-                                        plugins: {
-                                            legend: {
-                                                display: false,
+                                <CardContent className="flex-grow">
+                                    <div className="h-full">
+                                        <Pie data={popularCitiesData} options={{
+                                            responsive: true,
+                                            maintainAspectRatio: false,
+                                            plugins: {
+                                                legend: {
+                                                    position: 'bottom',
+                                                    labels: {
+                                                        boxWidth: 12,
+                                                    }
+                                                },
+                                                tooltip: {
+                                                    callbacks: {
+                                                        label: (context) => {
+                                                            const label = context.label || '';
+                                                            const value = context.parsed || 0;
+                                                            const total = context.dataset.data.reduce((acc, data) => acc + data, 0);
+                                                            const percentage = ((value / total) * 100).toFixed(1);
+                                                            return `${label}: ${percentage}%`;
+                                                        }
+                                                    }
+                                                }
                                             },
-                                        },
-                                    }} height={200} />
+                                        }} />
+                                    </div>
                                 </CardContent>
                             </Card>
                         </div>
