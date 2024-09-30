@@ -84,40 +84,40 @@ export default function Dashboard() {
                         </div>
                     </div>
                 </div>
-                <nav className="mt-4 flex-grow">
+                <nav className="mt-4 flex-grow text-sm">
                     <a href="#" className="block py-2 px-4 bg-blue-50 border-r-4" style={{ color: PANTONE_301, borderColor: PANTONE_301 }}>
                         <span className="flex items-center">
-                            <Home className="mr-2" size={20} />
+                            <Home className="mr-2" size={18} />
                             Dashboard
                         </span>
                     </a>
                     <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
                         <span className="flex items-center">
-                            <AlertTriangle className="mr-2" size={20} />
+                            <AlertTriangle className="mr-2" size={18} />
                             Abuse Reports
                         </span>
                     </a>
                     <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
                         <span className="flex items-center">
-                            <Ticket className="mr-2" size={20} />
+                            <Ticket className="mr-2" size={18} />
                             Tickets
                         </span>
                     </a>
                     <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
                         <span className="flex items-center">
-                            <Users className="mr-2" size={20} />
+                            <Users className="mr-2" size={18} />
                             Users
                         </span>
                     </a>
                     <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
                         <span className="flex items-center">
-                            <BarChart2 className="mr-2" size={20} />
+                            <BarChart2 className="mr-2" size={18} />
                             Analytics
                         </span>
                     </a>
                     <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
                         <span className="flex items-center">
-                            <Settings className="mr-2" size={20} />
+                            <Settings className="mr-2" size={18} />
                             Settings
                         </span>
                     </a>
