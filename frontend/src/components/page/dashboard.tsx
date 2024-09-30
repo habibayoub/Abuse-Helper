@@ -66,7 +66,7 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="flex h-screen overflow-hidden bg-gray-100">
+        <div className="flex h-full w-full bg-gray-100">
             {/* Sidebar */}
             <aside className={`bg-white w-64 fixed h-full z-30 border-r border-gray-200 shadow-sm transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
                 <div className="p-4 flex justify-between items-center border-b border-gray-200">
