@@ -9,7 +9,6 @@ edition = "2018"
 
 [dependencies]
 actix-web = "4.0.0-beta.8"
-actix-web-middleware-keycloak-auth = "0.4.2"
 chrono = { version = "0.4.37", features = ["serde"] }
 deadpool-postgres = "0.9.0"
 dotenv = "0.15.0"
