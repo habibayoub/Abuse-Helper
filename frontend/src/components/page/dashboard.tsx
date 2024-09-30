@@ -24,6 +24,8 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Toolti
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
+const PANTONE_301 = "#003F87"
+
 export default function Dashboard() {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [activeTab, setActiveTab] = useState("year")
@@ -34,12 +36,12 @@ export default function Dashboard() {
             {
                 label: "IPs Discovered",
                 data: [300, 450, 400, 480, 520, 600, 450, 500, 550, 480],
-                backgroundColor: "#818CF8",
+                backgroundColor: PANTONE_301,
             },
             {
                 label: "New Reports",
                 data: [200, 300, 250, 350, 400, 450, 350, 400, 450, 400],
-                backgroundColor: "#34D399",
+                backgroundColor: `${PANTONE_301}80`, // 50% opacity
             }
         ]
     }
@@ -51,11 +53,11 @@ export default function Dashboard() {
                 label: "Reports",
                 data: [120, 90, 70, 60, 50],
                 backgroundColor: [
-                    "rgba(59, 130, 246, 0.8)",
-                    "rgba(16, 185, 129, 0.8)",
-                    "rgba(249, 115, 22, 0.8)",
-                    "rgba(217, 70, 239, 0.8)",
-                    "rgba(245, 158, 11, 0.8)"
+                    PANTONE_301,
+                    `${PANTONE_301}CC`, // 80% opacity
+                    `${PANTONE_301}99`, // 60% opacity
+                    `${PANTONE_301}66`, // 40% opacity
+                    `${PANTONE_301}33`, // 20% opacity
                 ],
             }
         ]
@@ -70,13 +72,13 @@ export default function Dashboard() {
             {/* Sidebar */}
             <aside className={`bg-white w-64 fixed h-full z-30 border-r border-gray-200 shadow-sm transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
                 <div className="p-4 flex justify-between items-center border-b border-gray-200">
-                    <h2 className="text-2xl font-bold text-blue-600">AbuseHelper</h2>
+                    <h2 className="text-2xl font-bold" style={{ color: PANTONE_301 }}>AbuseHelper</h2>
                     <Button variant="ghost" size="icon" onClick={toggleSidebar} className="lg:hidden">
                         <X className="h-6 w-6" />
                     </Button>
                 </div>
                 <nav className="mt-4">
-                    <a href="#" className="block py-2 px-4 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
+                    <a href="#" className="block py-2 px-4 bg-blue-50 border-r-4" style={{ color: PANTONE_301, borderColor: PANTONE_301 }}>
                         <span className="flex items-center">
                             <Home className="mr-2" size={20} />
                             Dashboard
@@ -194,7 +196,7 @@ export default function Dashboard() {
                                         <div>
                                             <CardTitle className="text-xl font-bold">Report Statistics</CardTitle>
                                             <p className="text-sm text-muted-foreground">Total reports processed this year</p>
-                                            <p className="text-2xl font-bold mt-2">89,456 <span className="text-sm text-green-500">+3.24%</span></p>
+                                            <p className="text-2xl font-bold mt-2">89,456 <span className="text-sm" style={{ color: PANTONE_301 }}>+3.24%</span></p>
                                         </div>
                                         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
                                             <TabsList className="grid w-full grid-cols-3 sm:w-auto">
