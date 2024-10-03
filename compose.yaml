@@ -27,6 +27,7 @@ services:
       - PG_HOST=db
       - PG_USER=postgres
       - PG_PASSWORD=TCdKnfgf4SEXDnG
+      - JWT_SECRET=dw3QKXwLxzufwTHymvWjfdMfMcDDlckc
     networks:
       - client-side
       - server-side

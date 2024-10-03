@@ -1,32 +1,27 @@
 use deadpool_postgres::{Config, Pool};
 use tokio_postgres::NoTls;
-use tokio_postgres_migration::Migration;
 
 /// Scripts to run for the up migration
-const SCRIPTS_UP: [(&str, &str); 6] = [
+const SCRIPTS_UP: [(&str, &str); 5] = [
     (
         "0001_create-customers",
-        include_str!("../migrations/0001_create-customers_up.sql"),
+        include_str!("../migrations/0001_create-customers.sql"),
     ),
     (
-        "0002_add-dummy-customer",
-        include_str!("../migrations/0002_add-dummy-customer.sql"),
+        "0002_create-nctns",
+        include_str!("../migrations/0002_create-nctns.sql"),
     ),
     (
-        "0003_create-nctns",
-        include_str!("../migrations/0003_create-nctns.sql"),
+        "0003_create_users",
+        include_str!("../migrations/0003_create_users.sql"),
     ),
     (
-        "0004_add-dummy-nctns",
-        include_str!("../migrations/0004_add-dummy-nctns.sql"),
+        "0004_create_blacklisted_tokens",
+        include_str!("../migrations/0004_create_blacklisted_tokens.sql"),
     ),
     (
-        "0005_create_users",
-        include_str!("../migrations/0005_create_users.sql"),
-    ),
-    (
-        "0006_create_blacklisted_tokens",
-        include_str!("../migrations/0006_create_blacklisted_tokens.sql"),
+        "0005_create_user_logs",
+        include_str!("../migrations/0005_create_user_logs.sql"),
     ),
 ];
 
@@ -57,10 +52,12 @@ pub fn create_pool() -> Pool {
 
 /// Run the up migrations
 pub async fn migrate_up(pool: &Pool) {
-    let mut client = pool.get().await.expect("couldn't get postgres client");
-    let migration = Migration::new("migrations".to_string());
-    migration
-        .up(&mut **client, &SCRIPTS_UP)
-        .await
-        .expect("couldn't run migrations");
+    let client = pool.get().await.expect("couldn't get postgres client");
+    for (name, script) in SCRIPTS_UP.iter() {
+        client
+            .batch_execute(script)
+            .await
+            .unwrap_or_else(|e| panic!("Failed to execute migration {}: {:?}", name, e));
+        println!("Executed migration: {}", name);
+    }
 }

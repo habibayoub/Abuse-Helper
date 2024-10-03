@@ -1,5 +1,4 @@
 mod auth;
-mod common;
 mod llm;
 mod middleware;
 mod models;
@@ -8,7 +7,7 @@ mod routes;
 
 use actix_web::{get, web, App, HttpResponse, HttpServer};
 use dotenv::dotenv;
-use middleware::Auth;
+use middleware::{Auth, Logger};
 use routes::{customer, email, nctns, util};
 
 /// GET /status endpoint to check if the server is alive
@@ -36,34 +35,38 @@ async fn main() -> std::io::Result<()> {
         // Create the Actix application
         App::new()
             .app_data(web::Data::new(pg_pool.clone())) // Add the database pool to the application
-            .wrap(Auth::new()) // No need to pass the pool here
+            .wrap(Logger::new())
             .service(api_status)
             .service(
                 web::scope("/auth")
                     .service(routes::auth::login)
-                    .service(routes::auth::refresh)
-                    .service(routes::auth::logout),
+                    .service(routes::auth::refresh),
             )
             .service(
-                web::scope("/customer")
-                    .wrap(Auth::new().role("admin"))
-                    .service(customer::list)
-                    .service(customer::find),
-            )
-            .service(
-                web::scope("/nctns")
-                    .wrap(Auth::new().role("user"))
-                    .service(nctns::list),
-            )
-            .service(
-                web::scope("/util")
-                    .wrap(Auth::new().role("user"))
-                    .service(util::whois),
-            )
-            .service(
-                web::scope("/email")
-                    .wrap(Auth::new().role("admin"))
-                    .service(email::send),
+                web::scope("")
+                    .wrap(Auth::new())
+                    .service(web::scope("/auth").service(routes::auth::logout))
+                    .service(
+                        web::scope("/customer")
+                            .wrap(Auth::new().role("admin"))
+                            .service(customer::list)
+                            .service(customer::find),
+                    )
+                    .service(
+                        web::scope("/nctns")
+                            .wrap(Auth::new().role("user"))
+                            .service(nctns::list),
+                    )
+                    .service(
+                        web::scope("/util")
+                            .wrap(Auth::new().role("user"))
+                            .service(util::whois),
+                    )
+                    .service(
+                        web::scope("/email")
+                            .wrap(Auth::new().role("admin"))
+                            .service(email::send),
+                    ),
             )
     })
     .bind(&address)?

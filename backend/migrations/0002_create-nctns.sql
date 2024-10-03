@@ -1,3 +1,36 @@
+CREATE TABLE nctns (
+    uuid VARCHAR(255) PRIMARY KEY,
+    source_time VARCHAR(255),
+    "time" TIMESTAMP,
+    ip VARCHAR(255),
+    reverse_dns VARCHAR(255),
+    domain_name VARCHAR(255),
+    asn VARCHAR(255),
+    as_name VARCHAR(255),
+    category VARCHAR(255),
+    "type" VARCHAR(255),
+    malware_family VARCHAR(255),
+    vulnerability VARCHAR(255),
+    tag VARCHAR(255),
+    source_name VARCHAR(255),
+    comment TEXT,
+    "description" TEXT,
+    description_url VARCHAR(255),
+    destination_ip VARCHAR(255),
+    destination_port INTEGER,
+    port INTEGER,
+    protocol VARCHAR(255),
+    transport_protocol VARCHAR(255),
+    http_request TEXT,
+    user_agent TEXT,
+    username VARCHAR(255),
+    "url" TEXT,
+    destination_domain_name VARCHAR(255),
+    "status" VARCHAR(255),
+    observation_time TIMESTAMP,
+    source_feed VARCHAR(255)
+);
+
 INSERT INTO nctns (source_time, "time", ip, reverse_dns, domain_name, asn, as_name, category, "type", malware_family, vulnerability, tag, source_name, comment, "description", description_url, destination_ip, destination_port, port, protocol, transport_protocol, http_request, user_agent, username, "url", destination_domain_name, "status", uuid, observation_time, source_feed)
 VALUES
 ('source1', '2024-03-18 12:00:00', '192.168.1.1', 'example.com', 'example.com', 'AS12345', 'Example AS', 'Category1', 'Type1', 'MalwareFamily1', 'Vulnerability1', 'Tag1', 'SourceName1', 'Comment1', 'Description1', 'http://example.com/description1', '192.168.2.1', 80, 8080, 'TCP', 'HTTP', 'GET /page1', 'Mozilla/5.0', 'user1', 'http://example.com/page1', 'example.com', 'Success', 'uuid1', '2024-03-18 12:01:00', 'feed1'),

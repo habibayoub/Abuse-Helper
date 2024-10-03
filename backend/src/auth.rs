@@ -55,42 +55,46 @@ pub fn verify_jwt(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
 }
 
 pub async fn check_auth(req: &ServiceRequest, pool: &Pool) -> Result<Claims, Error> {
-    let auth_header = req
-        .headers()
-        .get("Authorization")
-        .ok_or_else(|| actix_web::error::ErrorUnauthorized("No authorization header"))?;
+    log::debug!("Checking auth for path: {}", req.path());
+    if let Some(auth_header) = req.headers().get("Authorization") {
+        log::debug!("Authorization header found: {:?}", auth_header);
+        let auth_str = auth_header
+            .to_str()
+            .map_err(|_| actix_web::error::ErrorUnauthorized("Invalid authorization header"))?;
 
-    let auth_str = auth_header
-        .to_str()
-        .map_err(|_| actix_web::error::ErrorUnauthorized("Invalid authorization header"))?;
-
-    if !auth_str.starts_with("Bearer ") {
-        return Err(actix_web::error::ErrorUnauthorized(
-            "Invalid authorization header",
-        ));
-    }
-
-    let token = &auth_str[7..];
-
-    if is_token_blacklisted(pool, token).await? {
-        return Err(actix_web::error::ErrorUnauthorized(
-            "Token has been invalidated",
-        ));
-    }
-
-    match verify_jwt(token) {
-        Ok(claims) => {
-            if claims.token_type != TokenType::Access {
-                return Err(actix_web::error::ErrorUnauthorized("Invalid token type"));
-            }
-            Ok(claims)
+        if !auth_str.starts_with("Bearer ") {
+            return Err(actix_web::error::ErrorUnauthorized(
+                "Invalid authorization header",
+            ));
         }
-        Err(e) => match e.kind() {
-            jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
-                Err(actix_web::error::ErrorUnauthorized("Token has expired"))
+
+        let token = &auth_str[7..];
+
+        if is_token_blacklisted(pool, token).await? {
+            return Err(actix_web::error::ErrorUnauthorized(
+                "Token has been invalidated",
+            ));
+        }
+
+        match verify_jwt(token) {
+            Ok(claims) => {
+                if claims.token_type != TokenType::Access {
+                    return Err(actix_web::error::ErrorUnauthorized("Invalid token type"));
+                }
+                Ok(claims)
             }
-            _ => Err(actix_web::error::ErrorUnauthorized("Invalid token")),
-        },
+            Err(e) => match e.kind() {
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                    Err(actix_web::error::ErrorUnauthorized("Token has expired"))
+                }
+                _ => Err(actix_web::error::ErrorUnauthorized("Invalid token")),
+            },
+        }
+    } else {
+        log::debug!("No Authorization header found");
+        Err(actix_web::error::ErrorUnauthorized(
+            "No authorization header",
+        ))
     }
 }
 
