@@ -3,7 +3,7 @@ use tokio_postgres::NoTls;
 use tokio_postgres_migration::Migration;
 
 /// Scripts to run for the up migration
-const SCRIPTS_UP: [(&str, &str); 4] = [
+const SCRIPTS_UP: [(&str, &str); 6] = [
     (
         "0001_create-customers",
         include_str!("../migrations/0001_create-customers_up.sql"),
@@ -19,6 +19,14 @@ const SCRIPTS_UP: [(&str, &str); 4] = [
     (
         "0004_add-dummy-nctns",
         include_str!("../migrations/0004_add-dummy-nctns.sql"),
+    ),
+    (
+        "0005_create_users",
+        include_str!("../migrations/0005_create_users.sql"),
+    ),
+    (
+        "0006_create_blacklisted_tokens",
+        include_str!("../migrations/0006_create_blacklisted_tokens.sql"),
     ),
 ];
 

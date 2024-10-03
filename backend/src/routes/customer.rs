@@ -1,11 +1,14 @@
 use actix_web::{get, post, web, HttpResponse};
 use deadpool_postgres::Pool;
 
+use crate::auth::Claims;
 use crate::models::customer::{Customer, LookUpForm};
 
 /// GET /customer/list endpoint to list all customers
 #[get("/list")]
-pub async fn list(pool: web::Data<Pool>) -> HttpResponse {
+pub async fn list(pool: web::Data<Pool>, claims: web::ReqData<Claims>) -> HttpResponse {
+    log::info!("User {} is listing customers", claims.sub);
+
     // Get a connection from the pool
     let client = match pool.get().await {
         Ok(client) => client,
@@ -27,7 +30,13 @@ pub async fn list(pool: web::Data<Pool>) -> HttpResponse {
 
 /// POST /customer/find endpoint to find a customer by email, ip, or id
 #[post("/find")]
-pub async fn find(pool: web::Data<Pool>, form: web::Json<LookUpForm>) -> HttpResponse {
+pub async fn find(
+    pool: web::Data<Pool>,
+    form: web::Json<LookUpForm>,
+    claims: web::ReqData<Claims>,
+) -> HttpResponse {
+    log::info!("User {} is finding a customer", claims.sub);
+
     // Get a connection from the pool
     let client = match pool.get().await {
         Ok(client) => client,

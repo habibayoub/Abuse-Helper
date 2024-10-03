@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowRight, ArrowRightCircle } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 const PANTONE_301 = "#0067a4";
 

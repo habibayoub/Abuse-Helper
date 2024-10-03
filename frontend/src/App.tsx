@@ -1,5 +1,5 @@
 import './index.css'
-import Dashboard from '@/components/page/dashboard'
+// import Dashboard from '@/components/page/dashboard'
 import Login from '@/components/page/login'
 
 function App() {

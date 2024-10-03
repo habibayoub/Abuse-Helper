@@ -1,11 +1,14 @@
+mod auth;
 mod common;
 mod llm;
+mod middleware;
 mod models;
 mod postgres;
 mod routes;
 
 use actix_web::{get, web, App, HttpResponse, HttpServer};
 use dotenv::dotenv;
+use middleware::Auth;
 use routes::{customer, email, nctns, util};
 
 /// GET /status endpoint to check if the server is alive
@@ -26,14 +29,6 @@ async fn main() -> std::io::Result<()> {
     let pg_pool = postgres::create_pool();
     postgres::migrate_up(&pg_pool).await;
 
-    // Create a thread to poll the email server for new emails
-    // actix_rt::spawn(async {
-    //     loop {
-    //         email::poll().await;
-    //         tokio::time::sleep(Duration::from_secs(60)).await;
-    //     }
-    // });
-
     // Start the Actix server
     let address = std::env::var("ADDRESS").unwrap_or_else(|_| "127.0.0.1:8000".into());
 
@@ -41,17 +36,37 @@ async fn main() -> std::io::Result<()> {
         // Create the Actix application
         App::new()
             .app_data(web::Data::new(pg_pool.clone())) // Add the database pool to the application
+            .wrap(Auth::new()) // No need to pass the pool here
             .service(api_status)
             .service(
+                web::scope("/auth")
+                    .service(routes::auth::login)
+                    .service(routes::auth::refresh)
+                    .service(routes::auth::logout),
+            )
+            .service(
                 web::scope("/customer")
+                    .wrap(Auth::new().role("admin"))
                     .service(customer::list)
                     .service(customer::find),
             )
-            .service(web::scope("/nctns").service(nctns::list))
-            .service(web::scope("/util").service(util::whois))
-            .service(web::scope("/email").service(email::send))
+            .service(
+                web::scope("/nctns")
+                    .wrap(Auth::new().role("user"))
+                    .service(nctns::list),
+            )
+            .service(
+                web::scope("/util")
+                    .wrap(Auth::new().role("user"))
+                    .service(util::whois),
+            )
+            .service(
+                web::scope("/email")
+                    .wrap(Auth::new().role("admin"))
+                    .service(email::send),
+            )
     })
-    .bind(&address)? // Bind the server to the address
-    .run() // Run the server
-    .await // Wait for the server to stop
+    .bind(&address)?
+    .run()
+    .await
 }
