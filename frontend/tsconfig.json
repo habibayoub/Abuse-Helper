@@ -9,6 +9,7 @@
     }
   ],
   "compilerOptions": {
+    "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
       "@/*": [

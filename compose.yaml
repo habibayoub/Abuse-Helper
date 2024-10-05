@@ -13,10 +13,10 @@ services:
       - /app/node_modules
     environment:
       - CHOKIDAR_USEPOLLING=true
-      - KEYCLOAK_URL=http://localhost:8080
-      - KEYCLOAK_REALM=your-realm
-      - KEYCLOAK_CLIENT_ID=your-client-id
-      - KEYCLOAK_CLIENT_SECRET=your-client-secret
+      - VITE_KEYCLOAK_URL=http://localhost:8080
+      - VITE_KEYCLOAK_REALM=Abuse-Helper
+      - VITE_KEYCLOAK_CLIENT_ID=Abuse-Helper
+      - VITE_KEYCLOAK_CLIENT_SECRET=4hKDZbgCm9hj4TqWInF5zcC2SIWCHLl6
     depends_on:
       - backend
 
