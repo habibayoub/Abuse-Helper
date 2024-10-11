@@ -5,18 +5,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from '@/contexts/AuthContext';
 
 const PANTONE_301 = "#0067a4";
 
 const Login: React.FC = () => {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-    const [userInfo, setUserInfo] = useState<{ name: string } | null>(null);
     const { toast } = useToast();
+    const { login } = useAuth();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setUserInfo(null);
 
         const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL || "";
         const REALM = import.meta.env.VITE_KEYCLOAK_REALM || "";
@@ -76,7 +76,6 @@ const Login: React.FC = () => {
 
             const userInfoData = await userInfoResponse.json();
             console.log("User info:", userInfoData);
-            setUserInfo(userInfoData);
 
             await authenticateWithBackend(accessToken);
         } catch (error) {
@@ -91,14 +90,14 @@ const Login: React.FC = () => {
 
     const authenticateWithBackend = async (accessToken: string) => {
         try {
-            const response = await fetch('/api/auth/exchange', {  // Changed from '/api/auth/login' to '/api/auth/exchange'
+            const response = await fetch('/api/auth/exchange', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ keycloak_token: accessToken })
             });
-            console.log("Response:", response);
+
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(errorText);
@@ -107,13 +106,21 @@ const Login: React.FC = () => {
             const data = await response.json();
             console.log("Backend authentication successful:", data);
 
+            // Use the new login function
+            login(data.access_token, data.refresh_token, {
+                name: data.user.name,
+                username: data.user.username,
+                email: data.user.email,  // Make sure this is included
+                roles: data.user.roles
+            });
+
             toast({
                 title: "Login successful",
                 description: `Welcome, ${data.user.name}!`,
                 variant: "success",
             });
 
-            // navigate('/dashboard');
+            // No need to navigate, App.tsx will render Dashboard automatically
         } catch (error) {
             console.error("Backend authentication error:", error);
             toast({

@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { Bar, Pie } from "react-chartjs-2"
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js"
+import { useAuth } from '@/contexts/AuthContext';
 
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement)
@@ -34,6 +35,7 @@ const PANTONE_301 = "#0067a4"
  * It includes a sidebar, header, and various data visualization elements.
  */
 export default function Dashboard() {
+    const { userInfo, logout } = useAuth();
     // State for controlling sidebar visibility on mobile
     const [sidebarOpen, setSidebarOpen] = useState(false)
     // State for controlling active tab in the Report Statistics section
@@ -85,6 +87,11 @@ export default function Dashboard() {
         setSidebarOpen(!sidebarOpen)
     }
 
+    const handleLogout = async () => {
+        await logout();
+        // The App component will automatically redirect to the Login page
+    };
+
     return (
         <div className="flex h-full w-full bg-gray-100">
             {/* Sidebar */}
@@ -100,8 +107,9 @@ export default function Dashboard() {
                     <div className="flex items-center space-x-3">
                         <User className="h-6 w-6" style={{ color: PANTONE_301 }} />
                         <div>
-                            <p className="font-semibold">John Doe</p>
-                            <p className="text-sm text-gray-500">john.doe@example.com</p>
+                            <p className="font-semibold">{userInfo?.name}</p>
+                            <p className="text-sm text-gray-500">{userInfo?.username}</p>
+                            <p className="text-xs text-gray-400">{userInfo?.email}</p>
                         </div>
                     </div>
                 </div>
@@ -152,7 +160,7 @@ export default function Dashboard() {
 
                 {/* Log out button */}
                 <div className="px-4 py-2 border-t border-gray-200">
-                    <Button variant="outline" className="w-full flex items-center justify-center" onClick={() => console.log('Logout clicked')}>
+                    <Button variant="outline" className="w-full flex items-center justify-center" onClick={handleLogout}>
                         <LogOut className="mr-2 h-4 w-4" />
                         Log Out
                     </Button>

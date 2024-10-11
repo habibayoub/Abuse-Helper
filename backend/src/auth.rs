@@ -174,6 +174,7 @@ pub async fn exchange_keycloak_token(keycloak_token: &str) -> Result<User, Error
         actix_web::error::ErrorInternalServerError("Missing name in Keycloak token")
     })?;
 
+    // Needs to be an array, fix in the future
     let role = token_info["realm_access"]["roles"]
         .as_array()
         .and_then(|roles| {
