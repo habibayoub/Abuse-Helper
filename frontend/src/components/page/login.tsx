@@ -106,12 +106,12 @@ const Login: React.FC = () => {
             const data = await response.json();
             console.log("Backend authentication successful:", data);
 
-            // Use the new login function
+            // Use the new login function with a single role
             login(data.access_token, data.refresh_token, {
                 name: data.user.name,
                 username: data.user.username,
-                email: data.user.email,  // Make sure this is included
-                roles: data.user.roles
+                email: data.user.email,
+                role: data.user.role // Changed from roles to role
             });
 
             toast({

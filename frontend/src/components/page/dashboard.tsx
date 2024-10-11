@@ -107,9 +107,11 @@ export default function Dashboard() {
                     <div className="flex items-center space-x-3">
                         <User className="h-6 w-6" style={{ color: PANTONE_301 }} />
                         <div>
-                            <p className="font-semibold">{userInfo?.name}</p>
-                            <p className="text-sm text-gray-500">{userInfo?.username}</p>
-                            <p className="text-xs text-gray-400">{userInfo?.email}</p>
+                            <p className="font-semibold">{userInfo?.name || 'User'}</p>
+                            <p className="text-xs text-gray-400">{userInfo?.email || 'Email'}</p>
+                            <p className="text-xs text-gray-400">
+                                Role: {userInfo?.role || 'No role assigned'}
+                            </p>
                         </div>
                     </div>
                 </div>

@@ -4,8 +4,8 @@ import { jwtDecode } from 'jwt-decode';
 interface UserInfo {
     name: string;
     username: string;
-    email: string;  // Add this line
-    roles: string[];
+    email: string;
+    role?: string; // Changed from roles?: string[] to role?: string
 }
 
 interface DecodedToken {
