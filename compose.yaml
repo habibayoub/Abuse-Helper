@@ -16,7 +16,7 @@ services:
       - VITE_KEYCLOAK_URL=http://localhost:8080
       - VITE_KEYCLOAK_REALM=Abuse-Helper
       - VITE_KEYCLOAK_CLIENT_ID=Abuse-Helper
-      - VITE_KEYCLOAK_CLIENT_SECRET=4hKDZbgCm9hj4TqWInF5zcC2SIWCHLl6
+      - VITE_KEYCLOAK_CLIENT_SECRET=KZSWZhe4aD3sGd0io01dcDCwhGadM57E
     depends_on:
       - backend
 
@@ -32,6 +32,10 @@ services:
       - PG_USER=postgres
       - PG_PASSWORD=TCdKnfgf4SEXDnG
       - JWT_SECRET=dw3QKXwLxzufwTHymvWjfdMfMcDDlckc
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=Abuse-Helper
+      - KEYCLOAK_CLIENT_ID=Abuse-Helper
+      - KEYCLOAK_CLIENT_SECRET=KZSWZhe4aD3sGd0io01dcDCwhGadM57E
     networks:
       - client-side
       - server-side
@@ -59,13 +63,14 @@ services:
     image: quay.io/keycloak/keycloak:latest
     command: start-dev
     environment:
-      - KEYCLOAK_ADMIN=admin
-      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
       - KC_DB=postgres
       - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
       - KC_DB_USERNAME=keycloak
       - KC_DB_PASSWORD=keycloak
       - KC_HOSTNAME=localhost
+      - KC_HTTP_ENABLED=true
     ports:
       - 8080:8080
     networks:

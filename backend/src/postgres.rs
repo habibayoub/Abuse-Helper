@@ -1,4 +1,5 @@
 use deadpool_postgres::{Config, Pool};
+use tokio_postgres::Error;
 use tokio_postgres::NoTls;
 
 /// Scripts to run for the up migration
@@ -50,14 +51,42 @@ pub fn create_pool() -> Pool {
         .expect("couldn't create postgres pool")
 }
 
-/// Run the up migrations
-pub async fn migrate_up(pool: &Pool) {
+pub async fn run_migrations(pool: &Pool) -> Result<(), Error> {
     let client = pool.get().await.expect("couldn't get postgres client");
-    for (name, script) in SCRIPTS_UP.iter() {
-        client
-            .batch_execute(script)
-            .await
-            .unwrap_or_else(|e| panic!("Failed to execute migration {}: {:?}", name, e));
-        println!("Executed migration: {}", name);
+
+    // Create migrations table if it doesn't exist
+    client
+        .execute(
+            "CREATE TABLE IF NOT EXISTS migrations (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL UNIQUE,
+            applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )",
+            &[],
+        )
+        .await?;
+
+    for (name, sql) in SCRIPTS_UP.iter() {
+        // Check if migration has been applied
+        let row = client
+            .query_one("SELECT COUNT(*) FROM migrations WHERE name = $1", &[name])
+            .await?;
+        let count: i64 = row.get(0);
+
+        if count == 0 {
+            // Run the migration
+            client.batch_execute(sql).await?;
+
+            // Mark migration as applied
+            client
+                .execute("INSERT INTO migrations (name) VALUES ($1)", &[name])
+                .await?;
+
+            println!("Applied migration: {}", name);
+        } else {
+            println!("Skipping migration: {} (already applied)", name);
+        }
     }
+
+    Ok(())
 }

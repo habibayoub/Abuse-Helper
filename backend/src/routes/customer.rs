@@ -1,7 +1,7 @@
 use actix_web::{get, post, web, HttpResponse};
 use deadpool_postgres::Pool;
 
-use crate::auth::Claims;
+use crate::models::auth::Claims;
 use crate::models::customer::{Customer, LookUpForm};
 
 /// GET /customer/list endpoint to list all customers

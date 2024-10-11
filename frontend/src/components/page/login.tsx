@@ -4,18 +4,20 @@ import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowRight } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const PANTONE_301 = "#0067a4";
 
 const Login: React.FC = () => {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-    const [userInfo, setUserInfo] = useState("");
-    
+    const [userInfo, setUserInfo] = useState<{ name: string } | null>(null);
+    const { toast } = useToast();
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setUserInfo("");
-        
+        setUserInfo(null);
+
         const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL || "";
         const REALM = import.meta.env.VITE_KEYCLOAK_REALM || "";
         const CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || "";
@@ -27,9 +29,11 @@ const Login: React.FC = () => {
             username,
             password,
             client_secret: CLIENT_SECRET,
+            scope: "openid",
         });
 
         try {
+            console.log("Fetching token from Keycloak...");
             const response = await fetch(`${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token`, {
                 method: "POST",
                 headers: {
@@ -40,16 +44,20 @@ const Login: React.FC = () => {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.error_description || "Login failed");
+                throw new Error(errorData.error_description || "An error occurred during login");
             }
 
             const data = await response.json();
             console.log("Login successful:", data);
-            
-            // Fetch user info using the access token
+
             await fetchUserInfo(data.access_token, KEYCLOAK_URL, REALM);
         } catch (error) {
             console.error("Login error:", error);
+            toast({
+                title: "Login failed",
+                description: error instanceof Error ? error.message : 'An error occurred during login',
+                variant: "destructive",
+            });
         }
     };
 
@@ -69,8 +77,50 @@ const Login: React.FC = () => {
             const userInfoData = await userInfoResponse.json();
             console.log("User info:", userInfoData);
             setUserInfo(userInfoData);
+
+            await authenticateWithBackend(accessToken);
         } catch (error) {
             console.error("Error fetching user info:", error);
+            toast({
+                title: "Login failed",
+                description: "Failed to fetch user information!",
+                variant: "destructive",
+            });
+        }
+    };
+
+    const authenticateWithBackend = async (accessToken: string) => {
+        try {
+            const response = await fetch('/api/auth/exchange', {  // Changed from '/api/auth/login' to '/api/auth/exchange'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ keycloak_token: accessToken })
+            });
+            console.log("Response:", response);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText);
+            }
+
+            const data = await response.json();
+            console.log("Backend authentication successful:", data);
+
+            toast({
+                title: "Login successful",
+                description: `Welcome, ${data.user.name}!`,
+                variant: "success",
+            });
+
+            // navigate('/dashboard');
+        } catch (error) {
+            console.error("Backend authentication error:", error);
+            toast({
+                title: "Authentication failed",
+                description: error instanceof Error ? error.message : 'An error occurred during authentication',
+                variant: "destructive",
+            });
         }
     };
 
@@ -87,46 +137,40 @@ const Login: React.FC = () => {
                     <CardDescription className="mt-2">Please sign in to access the application</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {!userInfo ? (
-                        <form onSubmit={handleLogin} className="space-y-6">
-                            <div className="space-y-2">
-                                <Label htmlFor="username">Username</Label>
-                                <Input
-                                    id="username"
-                                    type="text"
-                                    placeholder="Enter your username"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="password">Password</Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    placeholder="Enter your password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="flex justify-end pt-4">
-                                <Button
-                                    type="submit"
-                                    className="rounded-full px-6 py-2 flex items-center justify-center text-white transition-colors duration-300 hover:bg-blue-700 group"
-                                    style={{ backgroundColor: PANTONE_301 }}
-                                >
-                                    <span className="mr-2">Sign In</span>
-                                    <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
-                                </Button>
-                            </div>
-                        </form>
-                    ) : (
-                        <div>
-                            <h3 className="text-lg font-semibold mb-2">Welcome, {userInfo}!</h3>
+                    <form onSubmit={handleLogin} className="space-y-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="username">Username</Label>
+                            <Input
+                                id="username"
+                                type="text"
+                                placeholder="Enter your username"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                required
+                            />
                         </div>
-                    )}
+                        <div className="space-y-2">
+                            <Label htmlFor="password">Password</Label>
+                            <Input
+                                id="password"
+                                type="password"
+                                placeholder="Enter your password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="flex justify-end pt-4">
+                            <Button
+                                type="submit"
+                                className="rounded-full px-6 py-2 flex items-center justify-center text-white transition-colors duration-300 hover:bg-blue-700 group"
+                                style={{ backgroundColor: PANTONE_301 }}
+                            >
+                                <span className="mr-2">Sign In</span>
+                                <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
+                            </Button>
+                        </div>
+                    </form>
                 </CardContent>
             </Card>
         </div>

@@ -2,21 +2,12 @@ use actix_web::{dev::ServiceRequest, Error};
 use chrono::{Duration, Utc};
 use deadpool_postgres::Pool;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
-use serde::{Deserialize, Serialize};
+use reqwest::Client;
+use serde_json::Value;
+use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Claims {
-    pub sub: String,
-    pub role: String,
-    pub exp: usize,
-    pub token_type: TokenType,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub enum TokenType {
-    Access,
-    Refresh,
-}
+use crate::models::auth::{Claims, TokenType};
+use crate::models::user::User;
 
 pub fn create_jwt(
     user_id: &str,
@@ -136,4 +127,72 @@ async fn is_token_blacklisted(pool: &Pool, token: &str) -> Result<bool, Error> {
         })?;
 
     Ok(result.get(0))
+}
+
+pub async fn exchange_keycloak_token(keycloak_token: &str) -> Result<User, Error> {
+    let keycloak_url = std::env::var("KEYCLOAK_URL").expect("KEYCLOAK_URL must be set");
+    let realm = std::env::var("KEYCLOAK_REALM").expect("KEYCLOAK_REALM must be set");
+    let client_id = std::env::var("KEYCLOAK_CLIENT_ID").expect("KEYCLOAK_CLIENT_ID must be set");
+    let client_secret =
+        std::env::var("KEYCLOAK_CLIENT_SECRET").expect("KEYCLOAK_CLIENT_SECRET must be set");
+
+    let client = Client::new();
+    let response = client
+        .post(format!(
+            "{}/realms/{}/protocol/openid-connect/token/introspect",
+            keycloak_url, realm
+        ))
+        .form(&[
+            ("client_id", &client_id),
+            ("client_secret", &client_secret),
+            ("token", &keycloak_token.to_string()),
+        ])
+        .send()
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("Keycloak request failed: {}", e))
+        })?;
+
+    let token_info: Value = response.json().await.map_err(|e| {
+        actix_web::error::ErrorInternalServerError(format!(
+            "Failed to parse Keycloak response: {}",
+            e
+        ))
+    })?;
+
+    if !token_info["active"].as_bool().unwrap_or(false) {
+        return Err(actix_web::error::ErrorUnauthorized(
+            "Invalid Keycloak token",
+        ));
+    }
+
+    let email = token_info["email"].as_str().ok_or_else(|| {
+        actix_web::error::ErrorInternalServerError("Missing email in Keycloak token")
+    })?;
+
+    let name = token_info["name"].as_str().ok_or_else(|| {
+        actix_web::error::ErrorInternalServerError("Missing name in Keycloak token")
+    })?;
+
+    let role = token_info["realm_access"]["roles"]
+        .as_array()
+        .and_then(|roles| {
+            roles
+                .iter()
+                .find(|&r| r.as_str() == Some("user") || r.as_str() == Some("admin"))
+        })
+        .and_then(|role| role.as_str())
+        .unwrap_or("user");
+
+    let user = User {
+        id: Uuid::new_v4(),
+        email: email.to_owned(),
+        name: name.to_owned(),
+        password_hash: "".to_string(),
+        role: role.to_owned(),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+
+    Ok(user)
 }

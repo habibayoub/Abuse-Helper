@@ -5,6 +5,7 @@ mod models;
 mod postgres;
 mod routes;
 
+use crate::postgres::run_migrations;
 use actix_web::{get, web, App, HttpResponse, HttpServer};
 use dotenv::dotenv;
 use middleware::{Auth, Logger};
@@ -26,7 +27,15 @@ async fn main() -> std::io::Result<()> {
 
     // Create the database pool and run migrations
     let pg_pool = postgres::create_pool();
-    postgres::migrate_up(&pg_pool).await;
+
+    // Run migrations
+    if let Err(e) = run_migrations(&pg_pool).await {
+        eprintln!("Failed to run migrations: {}", e);
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Migration failed",
+        ));
+    }
 
     // Start the Actix server
     let address = std::env::var("ADDRESS").unwrap_or_else(|_| "127.0.0.1:8000".into());
@@ -40,7 +49,8 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/auth")
                     .service(routes::auth::login)
-                    .service(routes::auth::refresh),
+                    .service(routes::auth::refresh)
+                    .service(routes::auth::exchange_token),
             )
             .service(
                 web::scope("")

@@ -9,7 +9,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::auth::Claims;
+use crate::models::auth::Claims;
 use crate::models::user_log::UserLog;
 
 pub struct LoggerMiddleware<S> {
