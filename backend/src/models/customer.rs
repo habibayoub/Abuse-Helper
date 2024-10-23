@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use tokio_postgres::{Error, GenericClient, Row};
 
 /// Form for looking up a customer.
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct LookUpForm {
     pub email: Option<String>,
     pub ip: Option<String>,
