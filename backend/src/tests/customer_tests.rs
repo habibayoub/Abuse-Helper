@@ -1,5 +1,5 @@
 use super::common;
-use crate::{self as abuse_helper, Auth};
+use crate::{self as abuse_helper, middleware::Auth};
 use abuse_helper::models::auth::{LoginForm, TokenResponse};
 use abuse_helper::models::customer::Customer;
 use abuse_helper::routes::{auth, customer};

@@ -10,17 +10,9 @@ mod routes;
 mod tests;
 
 use crate::postgres::run_migrations;
-use actix_web::{get, web, App, HttpResponse, HttpServer};
+use actix_web::{web, App, HttpServer};
 use dotenv::dotenv;
-use middleware::{Auth, Logger};
-use routes::{customer, email, nctns, util};
-
-/// GET /status endpoint to check if the server is alive
-#[get("status")]
-async fn api_status() -> HttpResponse {
-    // Return a 200 OK response with a simple message
-    HttpResponse::Ok().json("alive")
-}
+use middleware::Logger;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -49,39 +41,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(pg_pool.clone())) // Add the database pool to the application
             .wrap(Logger::new())
-            .service(api_status)
-            .service(
-                web::scope("/auth")
-                    .service(routes::auth::login)
-                    .service(routes::auth::refresh)
-                    .service(routes::auth::exchange_token),
-            )
-            .service(
-                web::scope("")
-                    .wrap(Auth::new())
-                    .service(web::scope("/auth").service(routes::auth::logout))
-                    .service(
-                        web::scope("/customer")
-                            .wrap(Auth::new().role("admin"))
-                            .service(customer::list)
-                            .service(customer::find),
-                    )
-                    .service(
-                        web::scope("/nctns")
-                            .wrap(Auth::new().role("user"))
-                            .service(nctns::list),
-                    )
-                    .service(
-                        web::scope("/util")
-                            .wrap(Auth::new().role("user"))
-                            .service(util::whois),
-                    )
-                    .service(
-                        web::scope("/email")
-                            .wrap(Auth::new().role("admin"))
-                            .service(email::send),
-                    ),
-            )
+            .service(routes::config::configure_routes())
     })
     .bind(&address)?
     .run()
