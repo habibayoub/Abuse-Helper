@@ -8,4 +8,4 @@ CREATE TABLE IF NOT EXISTS customers (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO customers (email, ip) VALUES ('john.smith@gmail.com', '192.0.0.1');
+INSERT INTO customers (email, first_name, last_name, ip) VALUES ('john.smith@gmail.com', 'John', 'Smith', '192.0.0.1');

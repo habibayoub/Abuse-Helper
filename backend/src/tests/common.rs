@@ -24,7 +24,7 @@ pub fn initialize_tests() {
     });
 
     // Set JWT_SECRET for tests
-    env::set_var("JWT_SECRET", "test_secret");
+    env::set_var("JWT_SECRET", "dw3QKXwLxzufwTHymvWjfdMfMcDDlckc");
 }
 
 pub async fn setup_test_db() -> Pool {
@@ -150,13 +150,5 @@ pub async fn run_migrations(pool: &Pool) -> Result<(), Box<dyn std::error::Error
         }
     }
 
-    Ok(())
-}
-
-pub async fn clear_table(pool: &Pool, table_name: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let client = pool.get().await?;
-    client
-        .execute(&format!("DELETE FROM {}", table_name), &[])
-        .await?;
     Ok(())
 }
