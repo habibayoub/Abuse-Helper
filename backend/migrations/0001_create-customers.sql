@@ -1,7 +1,11 @@
-CREATE TABLE customers (
+CREATE TABLE IF NOT EXISTS customers (
   id SERIAL PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  ip VARCHAR(255)
+  email VARCHAR(255) NOT NULL UNIQUE,
+  first_name VARCHAR(255),
+  last_name VARCHAR(255),
+  ip VARCHAR(45),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO customers (id, email, ip) VALUES (0, 'john.smith@gmail.com', '192.0.0.1'); 
+INSERT INTO customers (email, ip) VALUES ('john.smith@gmail.com', '192.0.0.1');

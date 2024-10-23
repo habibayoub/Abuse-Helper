@@ -5,6 +5,10 @@ mod models;
 mod postgres;
 mod routes;
 
+// Add this line to include the tests module
+#[cfg(test)]
+mod tests;
+
 use crate::postgres::run_migrations;
 use actix_web::{get, web, App, HttpResponse, HttpServer};
 use dotenv::dotenv;

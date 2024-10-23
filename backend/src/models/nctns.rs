@@ -1,12 +1,13 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use tokio_postgres::{Error, GenericClient, Row};
+use uuid::Uuid;
 
 /// Struct representing a row in the nctns table.
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct NCTNS {
-    pub uuid: String,
+    pub uuid: Uuid,
     pub source_time: String,
-    pub time: NaiveDateTime,
+    pub time: DateTime<Utc>,
     pub ip: String,
     pub reverse_dns: String,
     pub domain_name: String,
@@ -32,7 +33,7 @@ pub struct NCTNS {
     pub url: String,
     pub destination_domain_name: String,
     pub status: String,
-    pub observation_time: NaiveDateTime,
+    pub observation_time: DateTime<Utc>,
     pub source_feed: String,
 }
 
@@ -43,7 +44,7 @@ impl From<Row> for NCTNS {
         Self {
             uuid: row.get(0),
             source_time: row.get(1),
-            time: row.get::<usize, NaiveDateTime>(2),
+            time: row.get(2),
             ip: row.get(3),
             reverse_dns: row.get(4),
             domain_name: row.get(5),
@@ -69,7 +70,7 @@ impl From<Row> for NCTNS {
             url: row.get(25),
             destination_domain_name: row.get(26),
             status: row.get(27),
-            observation_time: row.get::<usize, NaiveDateTime>(28),
+            observation_time: row.get(28),
             source_feed: row.get(29),
         }
     }
