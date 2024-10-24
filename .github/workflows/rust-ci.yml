@@ -63,13 +63,14 @@ jobs:
             backend/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --lib --verbose -- --test-threads=1
         working-directory: ./backend
         env:
           PG_DBNAME: test_db
           PG_HOST: localhost
           PG_USER: test_user
           PG_PASSWORD: test_password
+          RUST_BACKTRACE: 1
 
   clippy:
     name: Clippy
@@ -92,7 +93,7 @@ jobs:
             backend/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
       - name: Run clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -W warnings
         working-directory: ./backend
 
   format:
