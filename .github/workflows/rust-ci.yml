@@ -63,7 +63,7 @@ jobs:
             backend/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
       - name: Run tests
-        run: cargo test --lib --verbose
+        run: cargo test --lib --verbose -- --test-threads=1
         working-directory: ./backend
         env:
           PG_DBNAME: test_db

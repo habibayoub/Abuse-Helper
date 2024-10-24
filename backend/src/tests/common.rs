@@ -1,34 +1,23 @@
 use deadpool_postgres::{Config, Pool};
 use once_cell::sync::OnceCell;
 use std::env;
-use tokio::runtime::Runtime;
 use tokio_postgres::NoTls;
 
 static DB_POOL: OnceCell<Pool> = OnceCell::new();
-static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 
 pub fn get_db_pool() -> &'static Pool {
     DB_POOL.get().expect("Database pool not initialized")
 }
 
-pub fn get_runtime() -> &'static Runtime {
-    RUNTIME.get().expect("Runtime not initialized")
-}
-
-pub fn initialize_tests() {
-    let runtime = Runtime::new().expect("Failed to create runtime");
-    let _ = RUNTIME.set(runtime);
-
-    get_runtime().block_on(async {
-        let pool = setup_test_db().await;
-        clear_database(&pool)
-            .await
-            .expect("Failed to clear database");
-        run_migrations(&pool)
-            .await
-            .expect("Failed to run migrations");
-        let _ = DB_POOL.set(pool);
-    });
+pub async fn initialize_tests() {
+    let pool = setup_test_db().await;
+    clear_database(&pool)
+        .await
+        .expect("Failed to clear database");
+    run_migrations(&pool)
+        .await
+        .expect("Failed to run migrations");
+    let _ = DB_POOL.set(pool);
 
     // Set JWT_SECRET for tests
     env::set_var("JWT_SECRET", "dw3QKXwLxzufwTHymvWjfdMfMcDDlckc");

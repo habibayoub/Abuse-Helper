@@ -5,7 +5,7 @@ mod nctns_tests;
 mod whois_tests;
 
 #[cfg(test)]
-#[ctor::ctor]
-fn init() {
-    common::initialize_tests();
+#[actix_rt::test]
+async fn init() {
+    common::initialize_tests().await;
 }
