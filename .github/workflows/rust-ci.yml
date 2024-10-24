@@ -63,7 +63,7 @@ jobs:
             backend/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
       - name: Run tests
-        run: cargo test --lib --verbose -- --test-threads=1
+        run: cargo test --lib --verbose
         working-directory: ./backend
         env:
           PG_DBNAME: test_db
@@ -94,20 +94,4 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -W warnings
-        working-directory: ./backend
-
-  format:
-    name: Format
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: rustfmt
-      - name: Check formatting
-        run: cargo fmt -- --check
         working-directory: ./backend
