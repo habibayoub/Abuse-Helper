@@ -12,10 +12,8 @@ async fn test_whois_domain() {
     let mut app = test::init_service(
         App::new()
             .app_data(web::Data::new(pool.clone()))
-            .service(
-                web::scope("/auth")
-                    .service(auth::login))
-                .service(web::scope("/util").service(util::whois)),
+            .service(web::scope("/auth").service(auth::login))
+            .service(web::scope("/util").service(util::whois)),
     )
     .await;
 
@@ -29,15 +27,14 @@ async fn test_whois_domain() {
         .set_json(&login_form)
         .to_request();
 
-        let login_resp: TokenResponse = test::call_and_read_body_json(&mut app, login_req).await;
-        println!("Login response: {:?}", login_resp.access_token);
-
+    let login_resp: TokenResponse = test::call_and_read_body_json(&mut app, login_req).await;
+    println!("Login response: {:?}", login_resp.access_token);
 
     let request = test::TestRequest::get()
         .uri("/util/whois/google.com")
         .insert_header((
             "Authorization",
-            format!("Bearer {}", login_resp.access_token)
+            format!("Bearer {}", login_resp.access_token),
         ))
         .to_request();
 
@@ -45,8 +42,6 @@ async fn test_whois_domain() {
     println!("Response status: {:?}", resp.status());
 
     assert_eq!(resp.status(), StatusCode::OK);
-
-
 }
 
 #[actix_rt::test]
@@ -56,10 +51,8 @@ async fn test_whois_ip() {
     let mut app = test::init_service(
         App::new()
             .app_data(web::Data::new(pool.clone()))
-            .service(
-                web::scope("/auth")
-                    .service(auth::login))
-                .service(web::scope("/util").service(util::whois)),
+            .service(web::scope("/auth").service(auth::login))
+            .service(web::scope("/util").service(util::whois)),
     )
     .await;
 
@@ -73,15 +66,14 @@ async fn test_whois_ip() {
         .set_json(&login_form)
         .to_request();
 
-        let login_resp: TokenResponse = test::call_and_read_body_json(&mut app, login_req).await;
-        println!("Login response: {:?}", login_resp.access_token);
-
+    let login_resp: TokenResponse = test::call_and_read_body_json(&mut app, login_req).await;
+    println!("Login response: {:?}", login_resp.access_token);
 
     let request = test::TestRequest::get()
         .uri("/util/whois/8.8.8.8")
         .insert_header((
             "Authorization",
-            format!("Bearer {}", login_resp.access_token)
+            format!("Bearer {}", login_resp.access_token),
         ))
         .to_request();
 
@@ -89,6 +81,4 @@ async fn test_whois_ip() {
     println!("Response status: {:?}", resp.status());
 
     assert_eq!(resp.status(), StatusCode::OK);
-
-
 }

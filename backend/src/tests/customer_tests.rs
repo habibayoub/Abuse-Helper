@@ -1,6 +1,6 @@
 use super::common;
-use crate::{self as abuse_helper, middleware::Auth};
 use crate::models::customer::LookUpForm;
+use crate::{self as abuse_helper, middleware::Auth};
 use abuse_helper::models::auth::{LoginForm, TokenResponse};
 use abuse_helper::models::customer::Customer;
 use abuse_helper::routes::{auth, customer};
@@ -94,7 +94,7 @@ async fn test_find_customer() {
     let login_form = LoginForm {
         email: "admin@example.com".to_string(),
         password: "admin123".to_string(),
-    };      
+    };
 
     let login_req = test::TestRequest::post()
         .uri("/auth/login")
@@ -139,6 +139,4 @@ async fn test_find_customer() {
             e, body_str
         ),
     }
-
-
 }
