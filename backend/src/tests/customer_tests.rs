@@ -9,6 +9,7 @@ use serde_json;
 
 #[actix_rt::test]
 async fn test_list_customers() {
+    common::initialize_tests().await;
     let pool = common::get_db_pool().clone();
 
     // Create test app
@@ -75,6 +76,7 @@ async fn test_list_customers() {
 
 #[actix_rt::test]
 async fn test_find_customer() {
+    common::initialize_tests().await;
     let pool = common::get_db_pool().clone();
 
     // Create test app

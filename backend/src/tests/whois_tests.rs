@@ -7,6 +7,7 @@ use actix_web::{test, web, App};
 
 #[actix_rt::test]
 async fn test_whois_domain() {
+    common::initialize_tests().await;
     let pool = common::get_db_pool().clone();
 
     let mut app = test::init_service(
@@ -46,6 +47,7 @@ async fn test_whois_domain() {
 
 #[actix_rt::test]
 async fn test_whois_ip() {
+    common::initialize_tests().await;
     let pool = common::get_db_pool().clone();
 
     let mut app = test::init_service(

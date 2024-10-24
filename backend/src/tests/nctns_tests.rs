@@ -7,6 +7,7 @@ use serde_json;
 
 #[actix_rt::test]
 async fn test_list_nctns() {
+    common::initialize_tests().await;
     let pool = common::get_db_pool().clone();
 
     let mut app = test::init_service(

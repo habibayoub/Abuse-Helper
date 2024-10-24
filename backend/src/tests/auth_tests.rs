@@ -5,6 +5,7 @@ use actix_web::{test, web, App};
 
 #[actix_rt::test]
 async fn test_login() {
+    common::initialize_tests().await;
     let pool = common::get_db_pool().clone();
 
     let mut app = test::init_service(
@@ -47,6 +48,7 @@ async fn test_login() {
 
 #[actix_rt::test]
 async fn test_refresh() {
+    common::initialize_tests().await;
     let pool = common::get_db_pool().clone();
 
     let mut app = test::init_service(
