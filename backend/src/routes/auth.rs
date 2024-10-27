@@ -15,11 +15,11 @@ use uuid::Uuid;
 pub async fn login(pool: web::Data<Pool>, form: web::Json<LoginForm>) -> HttpResponse {
     let user = match User::find_by_email(&pool, &form.email).await {
         Ok(user) => user,
-        Err(_) => return HttpResponse::Unauthorized().json("Invalid email or password: find"),
+        Err(_) => return HttpResponse::Unauthorized().json("Invalid email or password"),
     };
 
     if !verify(&form.password, &user.password_hash).unwrap_or(false) {
-        return HttpResponse::Unauthorized().json("Invalid email or password: verify");
+        return HttpResponse::Unauthorized().json("Invalid email or password");
     }
 
     let access_token = create_jwt(&user.uuid, &user.role, TokenType::Access);
