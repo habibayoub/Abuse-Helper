@@ -16,7 +16,7 @@ services:
       - VITE_KEYCLOAK_URL=http://localhost:8080
       - VITE_KEYCLOAK_REALM=Abuse-Helper
       - VITE_KEYCLOAK_CLIENT_ID=Abuse-Helper
-      - VITE_KEYCLOAK_CLIENT_SECRET=KZSWZhe4aD3sGd0io01dcDCwhGadM57E
+      - VITE_KEYCLOAK_CLIENT_SECRET=**********
     depends_on:
       - backend
 
@@ -35,7 +35,7 @@ services:
       - KEYCLOAK_URL=http://keycloak:8080
       - KEYCLOAK_REALM=Abuse-Helper
       - KEYCLOAK_CLIENT_ID=Abuse-Helper
-      - KEYCLOAK_CLIENT_SECRET=KZSWZhe4aD3sGd0io01dcDCwhGadM57E
+      - KEYCLOAK_CLIENT_SECRET=**********
     networks:
       - client-side
       - server-side
@@ -61,7 +61,9 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:latest
-    command: start-dev
+    command:
+      - start-dev
+      - --import-realm
     environment:
       - KC_BOOTSTRAP_ADMIN_USERNAME=admin
       - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
@@ -76,6 +78,8 @@ services:
     networks:
       - client-side
       - server-side
+    volumes:
+      - ./kc.json:/opt/keycloak/data/import/realm.json
     depends_on:
       - keycloak-db
 
