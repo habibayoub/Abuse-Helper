@@ -11,7 +11,7 @@ use std::{
 
 use crate::models::auth::Claims;
 use crate::models::user_log::UserLog;
-
+use uuid::Uuid;
 pub struct LoggerMiddleware<S> {
     service: Rc<S>,
 }
@@ -40,12 +40,12 @@ where
             let res = srv.call(req).await?;
 
             if let Some(claims) = res.request().extensions().get::<Claims>() {
-                let user_id: i32 = claims.sub.parse().unwrap();
+                let user_uuid: Uuid = claims.sub;
                 let action = res.status().as_str().to_owned();
 
                 // Log the action asynchronously
                 actix_web::rt::spawn(async move {
-                    if let Err(e) = UserLog::create(&pool, user_id, &action, &path).await {
+                    if let Err(e) = UserLog::create(&pool, user_uuid, &action, &path).await {
                         eprintln!("Failed to log user action: {:?}", e);
                     }
                 });

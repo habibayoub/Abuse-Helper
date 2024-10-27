@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
-    pub id: Uuid,
+    pub uuid: Uuid,
     pub email: String,
     pub name: String,
     pub password_hash: String,
@@ -27,7 +27,7 @@ impl User {
 
         let row = client
             .query_one(
-                "SELECT id, email, name, password_hash, role, created_at, updated_at FROM users WHERE email = $1",
+                "SELECT uuid, email, name, password_hash, role, created_at, updated_at FROM users WHERE email = $1",
                 &[&email],
             )
             .await
@@ -36,7 +36,7 @@ impl User {
             })?;
 
         Ok(User {
-            id: row.get::<_, Uuid>("id"),
+            uuid: row.get::<_, Uuid>("uuid"),
             email: row.get("email"),
             name: row.get("name"),
             password_hash: row.get("password_hash"),
@@ -48,7 +48,7 @@ impl User {
 
     pub async fn create(
         pool: &Pool,
-        id: Uuid,
+        uuid: Uuid,
         email: String,
         name: String,
         password_hash: String,
@@ -63,11 +63,11 @@ impl User {
 
         let row = client
             .query_one(
-                "INSERT INTO users (id, email, name, password_hash, role) 
+                "INSERT INTO users (uuid, email, name, password_hash, role) 
                  VALUES ($1, $2, $3, $4, $5) 
-                 RETURNING id, email, name, password_hash, role, created_at, updated_at",
+                 RETURNING uuid, email, name, password_hash, role, created_at, updated_at",
                 &[
-                    &id as &(dyn ToSql + Sync),
+                    &uuid as &(dyn ToSql + Sync),
                     &email,
                     &name,
                     &password_hash,
@@ -80,7 +80,7 @@ impl User {
             })?;
 
         Ok(User {
-            id: row.get::<_, Uuid>("id"),
+            uuid: row.get::<_, Uuid>("uuid"),
             email: row.get("email"),
             name: row.get("name"),
             password_hash: row.get("password_hash"),
@@ -90,7 +90,7 @@ impl User {
         })
     }
 
-    pub async fn find_by_id(pool: &Pool, id: &str) -> Result<Self, Error> {
+    pub async fn find_by_uuid(pool: &Pool, uuid: &Uuid) -> Result<Self, Error> {
         let client = pool.get().await.map_err(|e| {
             actix_web::error::ErrorInternalServerError(format!(
                 "Error getting db connection: {}",
@@ -98,12 +98,9 @@ impl User {
             ))
         })?;
 
-        let uuid = Uuid::parse_str(id)
-            .map_err(|e| actix_web::error::ErrorBadRequest(format!("Invalid UUID: {}", e)))?;
-
         let row = client
             .query_one(
-                "SELECT id, email, name, password_hash, role, created_at, updated_at FROM users WHERE id = $1",
+                "SELECT uuid, email, name, password_hash, role, created_at, updated_at FROM users WHERE uuid = $1",
                 &[&uuid as &(dyn ToSql + Sync)],
             )
             .await
@@ -112,7 +109,7 @@ impl User {
             })?;
 
         Ok(User {
-            id: row.get::<_, Uuid>("id"),
+            uuid: row.get::<_, Uuid>("uuid"),
             email: row.get("email"),
             name: row.get("name"),
             password_hash: row.get("password_hash"),

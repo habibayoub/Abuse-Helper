@@ -111,7 +111,7 @@ async fn test_find_customer() {
     let form = LookUpForm {
         email: Some("john.smith@gmail.com".to_string()),
         ip: None,
-        id: None,
+        uuid: None,
     };
     let req = test::TestRequest::post()
         .uri("/customer/find")

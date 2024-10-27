@@ -10,7 +10,7 @@ use crate::models::auth::{Claims, TokenType};
 use crate::models::user::User;
 
 pub fn create_jwt(
-    user_id: &str,
+    user_uuid: &Uuid,
     role: &str,
     token_type: TokenType,
 ) -> Result<String, jsonwebtoken::errors::Error> {
@@ -20,7 +20,7 @@ pub fn create_jwt(
     };
 
     let claims = Claims {
-        sub: user_id.to_owned(),
+        sub: user_uuid.clone(),
         role: role.to_owned(),
         exp: expiration.timestamp() as usize,
         token_type,
@@ -186,7 +186,7 @@ pub async fn exchange_keycloak_token(keycloak_token: &str) -> Result<User, Error
         .unwrap_or("user");
 
     let user = User {
-        id: Uuid::new_v4(),
+        uuid: Uuid::new_v4(),
         email: email.to_owned(),
         name: name.to_owned(),
         password_hash: "".to_string(),

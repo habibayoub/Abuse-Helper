@@ -15,15 +15,15 @@ use uuid::Uuid;
 pub async fn login(pool: web::Data<Pool>, form: web::Json<LoginForm>) -> HttpResponse {
     let user = match User::find_by_email(&pool, &form.email).await {
         Ok(user) => user,
-        Err(_) => return HttpResponse::Unauthorized().json("Invalid email or password"),
+        Err(_) => return HttpResponse::Unauthorized().json("Invalid email or password: find"),
     };
 
     if !verify(&form.password, &user.password_hash).unwrap_or(false) {
-        return HttpResponse::Unauthorized().json("Invalid email or password");
+        return HttpResponse::Unauthorized().json("Invalid email or password: verify");
     }
 
-    let access_token = create_jwt(&user.id.to_string(), &user.role, TokenType::Access);
-    let refresh_token = create_jwt(&user.id.to_string(), &user.role, TokenType::Refresh);
+    let access_token = create_jwt(&user.uuid, &user.role, TokenType::Access);
+    let refresh_token = create_jwt(&user.uuid, &user.role, TokenType::Refresh);
 
     match (access_token, refresh_token) {
         (Ok(access_str), Ok(refresh_str)) => {
@@ -31,7 +31,7 @@ pub async fn login(pool: web::Data<Pool>, form: web::Json<LoginForm>) -> HttpRes
                 access_token: access_str,
                 refresh_token: Some(refresh_str),
                 user: UserResponse {
-                    id: user.id,
+                    uuid: user.uuid,
                     email: user.email,
                     name: user.name,
                     role: user.role,
@@ -51,19 +51,19 @@ pub async fn refresh(pool: web::Data<Pool>, form: web::Json<RefreshRequest>) -> 
                 return HttpResponse::BadRequest().json("Invalid token type");
             }
 
-            let user = match User::find_by_id(&pool, &claims.sub).await {
+            let user = match User::find_by_uuid(&pool, &claims.sub).await {
                 Ok(user) => user,
                 Err(_) => return HttpResponse::InternalServerError().json("Failed to fetch user"),
             };
 
-            let new_access_token = create_jwt(&user.id.to_string(), &user.role, TokenType::Access);
+            let new_access_token = create_jwt(&user.uuid, &user.role, TokenType::Access);
             match new_access_token {
                 Ok(access_token) => {
                     let token_response = TokenResponse {
                         access_token,
                         refresh_token: None, // We don't issue a new refresh token here
                         user: UserResponse {
-                            id: user.id,
+                            uuid: user.uuid,
                             email: user.email,
                             name: user.name,
                             role: user.role,
@@ -125,27 +125,25 @@ pub async fn exchange_token(
                 }
             };
 
-            match create_jwt(&user.id.to_string(), &user.role, TokenType::Access) {
-                Ok(access_token) => {
-                    match create_jwt(&user.id.to_string(), &user.role, TokenType::Refresh) {
-                        Ok(refresh_token) => {
-                            let token_response = TokenResponse {
-                                access_token,
-                                refresh_token: Some(refresh_token),
-                                user: UserResponse {
-                                    id: user.id,
-                                    email: user.email,
-                                    name: user.name,
-                                    role: user.role,
-                                },
-                            };
-                            HttpResponse::Ok().json(token_response)
-                        }
-                        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
-                            "error": "Failed to create refresh token"
-                        })),
+            match create_jwt(&user.uuid, &user.role, TokenType::Access) {
+                Ok(access_token) => match create_jwt(&user.uuid, &user.role, TokenType::Refresh) {
+                    Ok(refresh_token) => {
+                        let token_response = TokenResponse {
+                            access_token,
+                            refresh_token: Some(refresh_token),
+                            user: UserResponse {
+                                uuid: user.uuid,
+                                email: user.email,
+                                name: user.name,
+                                role: user.role,
+                            },
+                        };
+                        HttpResponse::Ok().json(token_response)
                     }
-                }
+                    Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
+                        "error": "Failed to create refresh token"
+                    })),
+                },
                 Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
                     "error": "Failed to create access token"
                 })),
@@ -208,7 +206,7 @@ pub async fn create_user(
     };
 
     HttpResponse::Ok().json(UserResponse {
-        id: new_user.id,
+        uuid: new_user.uuid,
         email: new_user.email,
         name: new_user.name,
         role: new_user.role,

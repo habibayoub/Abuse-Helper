@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: String,
+    pub sub: Uuid,
     pub role: String,
     pub exp: usize,
     pub token_type: TokenType,
@@ -40,7 +40,7 @@ pub struct TokenResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserResponse {
-    pub id: Uuid,
+    pub uuid: Uuid,
     pub email: String,
     pub name: String,
     pub role: String,

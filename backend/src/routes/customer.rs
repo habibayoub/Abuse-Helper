@@ -47,7 +47,7 @@ pub async fn find(
     };
 
     // Find the customer by email, ip, or id
-    match (form.email.clone(), form.ip.clone(), form.id.clone()) {
+    match (form.email.clone(), form.ip.clone(), form.uuid.clone()) {
         // If email is provided, find by email
         (Some(email), _, _) => {
             match Customer::find_by_email(&**client, &email).await {
@@ -60,8 +60,8 @@ pub async fn find(
             Ok(customer) => return HttpResponse::Ok().json(customer),
             Err(_) => return HttpResponse::InternalServerError().json("customer not found"),
         },
-        // If id is provided, find by id
-        (_, _, Some(id)) => match Customer::find_by_id(&**client, id).await {
+        // If uuid is provided, find by uuid
+        (_, _, Some(uuid)) => match Customer::find_by_uuid(&**client, uuid).await {
             Ok(customer) => HttpResponse::Ok().json(customer),
             Err(_) => HttpResponse::InternalServerError().json("customer not found"),
         },

@@ -1,18 +1,18 @@
 use chrono::{DateTime, Utc};
 use tokio_postgres::{Error, GenericClient, Row};
-
+use uuid::Uuid;
 /// Form for looking up a customer.
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct LookUpForm {
     pub email: Option<String>,
     pub ip: Option<String>,
-    pub id: Option<i32>,
+    pub uuid: Option<Uuid>,
 }
 
 /// Struct representing a customer in the database.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Customer {
-    pub id: i32,
+    pub uuid: Uuid,
     pub email: String,
     pub first_name: Option<String>,
     pub last_name: Option<String>,
@@ -26,7 +26,7 @@ pub struct Customer {
 impl From<Row> for Customer {
     fn from(row: Row) -> Self {
         Self {
-            id: row.get("id"),
+            uuid: row.get("uuid"),
             email: row.get("email"),
             first_name: row.get("first_name"),
             last_name: row.get("last_name"),
@@ -43,7 +43,7 @@ impl Customer {
     /// Get all customers from the database.
     pub async fn all<C: GenericClient>(client: &C) -> Result<Vec<Customer>, Error> {
         let stmt = client
-            .prepare("SELECT id, email, first_name, last_name, ip, created_at, updated_at FROM customers")
+            .prepare("SELECT uuid, email, first_name, last_name, ip, created_at, updated_at FROM customers")
             .await?;
         let rows = client.query(&stmt, &[]).await?;
 
@@ -56,7 +56,7 @@ impl Customer {
         email: &str,
     ) -> Result<Customer, Error> {
         let stmt = client
-            .prepare("SELECT id, email, first_name, last_name, ip, created_at, updated_at FROM customers WHERE email = $1")
+            .prepare("SELECT uuid, email, first_name, last_name, ip, created_at, updated_at FROM customers WHERE email = $1")
             .await?;
         let row = client.query_one(&stmt, &[&email]).await?;
 
@@ -66,7 +66,7 @@ impl Customer {
     /// Find a customer by IP address.
     pub async fn find_by_ip<C: GenericClient>(client: &C, ip: &str) -> Result<Customer, Error> {
         let stmt = client
-            .prepare("SELECT id, email, first_name, last_name, ip, created_at, updated_at FROM customers WHERE ip = $1")
+            .prepare("SELECT uuid, email, first_name, last_name, ip, created_at, updated_at FROM customers WHERE ip = $1")
             .await?;
         let row = client.query_one(&stmt, &[&ip]).await?;
 
@@ -74,11 +74,11 @@ impl Customer {
     }
 
     /// Find a customer by ID.
-    pub async fn find_by_id<C: GenericClient>(client: &C, id: i32) -> Result<Customer, Error> {
+    pub async fn find_by_uuid<C: GenericClient>(client: &C, uuid: Uuid) -> Result<Customer, Error> {
         let stmt = client
-            .prepare("SELECT id, email, first_name, last_name, ip, created_at, updated_at FROM customers WHERE id = $1")
+            .prepare("SELECT uuid, email, first_name, last_name, ip, created_at, updated_at FROM customers WHERE uuid = $1")
             .await?;
-        let row = client.query_one(&stmt, &[&id]).await?;
+        let row = client.query_one(&stmt, &[&uuid]).await?;
 
         Ok(Customer::from(row))
     }
