@@ -4,4 +4,5 @@ pub mod config;
 pub mod customer;
 pub mod email;
 pub mod nctns;
+pub mod ticket;
 pub mod util;

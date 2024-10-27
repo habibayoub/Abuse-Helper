@@ -36,6 +36,10 @@ services:
       - KEYCLOAK_REALM=Abuse-Helper
       - KEYCLOAK_CLIENT_ID=Abuse-Helper
       - KEYCLOAK_CLIENT_SECRET=**********
+      - SMTP_SERVER=mailcrab
+      - SMTP_PORT=1025
+      - IMAP_SERVER=mailcrab
+      - IMAP_PORT=1143
     networks:
       - client-side
       - server-side
@@ -46,6 +50,7 @@ services:
       - backend-cache:/code/target
     depends_on:
       - db
+      - mailcrab
 
   db:
     image: postgres:12-alpine
@@ -93,6 +98,15 @@ services:
       - server-side
     volumes:
       - keycloak-data:/var/lib/postgresql/data
+
+  mailcrab:
+    image: marlonb/mailcrab:latest
+    ports:
+      - "1025:1025" # SMTP port
+      - "1080:1080" # Web interface
+      - "1143:1143" # IMAP port
+    networks:
+      - server-side
 
 networks:
   client-side: {}
