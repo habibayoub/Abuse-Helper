@@ -19,10 +19,11 @@ impl UserLog {
         route: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let client = pool.get().await?;
+        let uuid = Uuid::new_v4();
         client
             .execute(
-                "INSERT INTO user_logs (user_uuid, action, route) VALUES ($1, $2, $3)",
-                &[&user_uuid, &action, &route],
+                "INSERT INTO user_logs (uuid, user_uuid, action, route) VALUES ($1, $2, $3, $4)",
+                &[&uuid, &user_uuid, &action, &route],
             )
             .await?;
         Ok(())

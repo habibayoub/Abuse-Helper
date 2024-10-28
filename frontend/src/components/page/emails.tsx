@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useForm } from "react-hook-form"
+import api from '@/lib/axios'  // Import the axios instance
 
 // Define the Email interface based on the backend model
 interface Email {
@@ -24,50 +25,6 @@ interface Email {
     body: string
     received_at: string
 }
-
-const DUMMY_EMAILS: Email[] = [
-    {
-        id: "1",
-        from: "john.doe@example.com",
-        to: ["alice.smith@company.com"],
-        subject: "Weekly Project Update - Q1 Goals",
-        body: "Hi Alice, I wanted to share the latest updates on our Q1 project goals. We've made significant progress on...",
-        received_at: "2024-03-15T10:30:00Z"
-    },
-    {
-        id: "2",
-        from: "marketing@newsletter.com",
-        to: ["subscribers@company.com"],
-        subject: "🚀 March Newsletter: Latest Product Updates",
-        body: "Discover what's new this month! We're excited to announce several new features...",
-        received_at: "2024-03-14T15:45:00Z"
-    },
-    {
-        id: "3",
-        from: "support@saasplatform.com",
-        to: ["dev.team@company.com", "ops.team@company.com"],
-        subject: "Important: Security Update Required",
-        body: "Dear Customer, We've released a critical security patch that requires your immediate attention...",
-        received_at: "2024-03-14T08:15:00Z"
-    },
-    {
-        id: "4",
-        from: "hr@company.com",
-        to: ["all-staff@company.com"],
-        subject: "Reminder: Team Building Event Next Week",
-        body: "Hello everyone! This is a friendly reminder about our upcoming team building event next Thursday...",
-        received_at: "2024-03-13T16:20:00Z"
-    },
-    {
-        id: "5",
-        from: "david.wilson@partner.org",
-        to: ["projects@company.com"],
-        subject: "Partnership Proposal - Q2 2024",
-        body: "Dear Project Team, Following our discussion last week, I'm pleased to submit our formal partnership proposal...",
-        received_at: "2024-03-13T11:05:00Z"
-    }
-];
-
 
 interface EmailForm {
     to: string
@@ -87,16 +44,11 @@ export default function EmailsPage() {
 
     const fetchEmails = async () => {
         try {
-            const response = await fetch('/api/email/list')
-            if (!response.ok) {
-                throw new Error('Failed to fetch emails')
-            }
-            const data = await response.json()
-            setEmails(data)
+            const response = await api.get('/email/list')
+            setEmails(response.data)
         } catch (err) {
-            console.log('Using dummy data due to fetch error:', err)
-            setEmails(DUMMY_EMAILS)
-            setError(null)
+            console.error('Error fetching emails:', err)
+            setError('Failed to fetch emails')
         } finally {
             setLoading(false)
         }
@@ -115,7 +67,7 @@ export default function EmailsPage() {
 
     const onSubmit = async (data: EmailForm) => {
         try {
-            const response = await fetch('/api/email/send', {
+            const response = await api.post('/email/send', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -126,10 +78,6 @@ export default function EmailsPage() {
                     body: data.body,
                 }),
             })
-
-            if (!response.ok) {
-                throw new Error('Failed to send email')
-            }
 
             // Refresh emails list and reset form
             fetchEmails()

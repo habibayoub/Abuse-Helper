@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { format } from "date-fns"
 import { Eye, Menu, TicketsIcon } from "lucide-react"
 import Sidebar from '@/components/layout/Sidebar'
+import api from '@/lib/axios'  // Import the axios instance
 
 // Define the Ticket interface based on the backend model
 interface Ticket {
@@ -38,12 +39,8 @@ export default function TicketsPage() {
 
     const fetchTickets = async () => {
         try {
-            const response = await fetch('/api/tickets')
-            if (!response.ok) {
-                throw new Error('Failed to fetch tickets')
-            }
-            const data = await response.json()
-            setTickets(data)
+            const response = await api.get('/ticket/tickets')
+            setTickets(response.data)
         } catch (err) {
             console.error('Error fetching tickets:', err)
             setError('Failed to fetch tickets')

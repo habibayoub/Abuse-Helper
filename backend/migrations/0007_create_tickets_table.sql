@@ -1,10 +1,7 @@
-CREATE TYPE ticket_type AS ENUM ('Malware', 'Phishing', 'Scam', 'Spam', 'Other');
-CREATE TYPE ticket_status AS ENUM ('Open', 'InProgress', 'Closed', 'Resolved');
-
 CREATE TABLE IF NOT EXISTS tickets (
     id UUID PRIMARY KEY,
-    ticket_type ticket_type NOT NULL,
-    status ticket_status NOT NULL DEFAULT 'Open',
+    ticket_type TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Open',
     ip_address TEXT,
     email_id TEXT NOT NULL,
     subject TEXT NOT NULL,

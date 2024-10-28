@@ -12,10 +12,12 @@ use native_tls::TlsConnector;
 use regex::Regex;
 use std::env;
 use uuid::Uuid;
+use reqwest;
+use serde_json::Value;
 
 /// Function to send an email using SMTP
 async fn send_email(email: OutgoingEmail) -> Result<String, String> {
-    let smtp_server = env::var("SMTP_SERVER").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let smtp_server = env::var("SMTP_SERVER").unwrap_or_else(|_| "mailcrab".to_string());
     let smtp_port = env::var("SMTP_PORT").unwrap_or_else(|_| "1025".to_string());
     let smtp_username = env::var("SMTP_USERNAME").unwrap_or_else(|_| "test@localhost".to_string());
 
@@ -161,91 +163,46 @@ async fn create_ticket_from_email(pool: &Pool, email: &Email) -> Result<Uuid, St
     Ok(ticket_id)
 }
 
-fn connect_imap() -> Result<Session<native_tls::TlsStream<std::net::TcpStream>>, String> {
-    let imap_server = env::var("IMAP_SERVER").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let imap_port = env::var("IMAP_PORT").unwrap_or_else(|_| "1143".to_string());
-    let username = env::var("IMAP_USERNAME").unwrap_or_else(|_| "test@localhost".to_string());
-    let password = env::var("IMAP_PASSWORD").unwrap_or_else(|_| "password".to_string());
-
-    let tls = TlsConnector::builder()
-        .danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|e| format!("TLS error: {}", e))?;
-
-    let client = imap::connect(
-        (
-            imap_server.as_str(),
-            imap_port.parse::<u16>().unwrap_or(1143),
-        ),
-        imap_server.as_str(),
-        &tls,
-    )
-    .map_err(|e| format!("Connection error: {}", e))?;
-
-    client
-        .login(username, password)
-        .map_err(|(e, _)| format!("Login error: {}", e))
-}
-
 async fn fetch_emails(pool: &Pool) -> Result<Vec<Email>, String> {
-    let mut imap_session = connect_imap()?;
+    let mailcrab_url = env::var("MAILCRAB_URL")
+        .unwrap_or_else(|_| "http://mailcrab:1080".to_string());
+    
+    let client = reqwest::Client::new();
+    let response = client
+        .get(format!("{}/api/messages", mailcrab_url))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch from Mailcrab API: {}", e))?;
 
-    imap_session
-        .select("INBOX")
-        .map_err(|e| format!("Failed to select INBOX: {}", e))?;
-
-    let sequence_set = "1:*";
-    let messages = imap_session
-        .fetch(sequence_set, "(RFC822 INTERNALDATE)")
-        .map_err(|e| format!("Failed to fetch messages: {}", e))?;
+    let messages: Vec<Value> = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse Mailcrab response: {}", e))?;
 
     let mut emails = Vec::new();
+    
+    for message in messages {
+        let email = Email {
+            id: message["ID"].as_str().unwrap_or("").to_string(),
+            from: message["From"].as_str().unwrap_or("Unknown").to_string(),
+            to: vec![message["To"].as_str().unwrap_or("").to_string()],
+            subject: message["Subject"].as_str().unwrap_or("No Subject").to_string(),
+            body: message["Text"].as_str().unwrap_or("").to_string(),
+            received_at: DateTime::parse_from_rfc3339(
+                message["Created"].as_str().unwrap_or(&Utc::now().to_rfc3339())
+            )
+            .unwrap_or_else(|_| Utc::now().into())
+            .with_timezone(&Utc),
+        };
 
-    for message in messages.iter() {
-        if let Some(body) = message.body() {
-            if let Ok(parsed) = mailparse::parse_mail(body) {
-                let headers = parsed.get_headers();
-
-                // Fix: Use get_header_value instead of get_first_value
-                let from = headers
-                    .get_first_value("From")
-                    .unwrap_or_else(|| "Unknown".to_string());
-
-                let to: Vec<String> = headers.get_all_values("To");
-
-                let subject = headers
-                    .get_first_value("Subject")
-                    .unwrap_or_else(|| "No Subject".to_string());
-
-                let received_at = message
-                    .internal_date()
-                    .map(|date| DateTime::<Utc>::from(date))
-                    .unwrap_or_else(|| Utc::now());
-
-                let body = parsed
-                    .get_body()
-                    .map_err(|_| "Failed to get body".to_string())?;
-
-                let email = Email {
-                    id: message.message.to_string(),
-                    from,
-                    to,
-                    subject,
-                    body,
-                    received_at,
-                };
-
-                // Create ticket for the email
-                if let Err(e) = create_ticket_from_email(pool, &email).await {
-                    eprintln!("Failed to create ticket for email {}: {}", email.id, e);
-                }
-
-                emails.push(email);
-            }
+        // Create ticket for the email
+        if let Err(e) = create_ticket_from_email(pool, &email).await {
+            eprintln!("Failed to create ticket for email {}: {}", email.id, e);
         }
+
+        emails.push(email);
     }
 
-    imap_session.logout().ok();
     Ok(emails)
 }
 
