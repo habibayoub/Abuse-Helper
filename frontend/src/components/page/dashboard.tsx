@@ -4,23 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
     AlertTriangle,
-    BarChart2,
-    Eye,
-    Home,
-    Mail,
     Menu,
-    Settings,
-    Ticket,
     TicketPlus,
     TicketsIcon,
-    User,
     Users,
-    X,
-    LogOut // Add this import
+    Mail,
+    Eye
 } from "lucide-react"
 import { Bar, Pie } from "react-chartjs-2"
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js"
-import { useAuth } from '@/contexts/AuthContext';
+import Sidebar from "@/components/layout/Sidebar"
 
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement)
@@ -28,14 +21,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
 // Define the primary color used throughout the dashboard
 const PANTONE_301 = "#0067a4"
 
-/**
- * Dashboard Component
- * 
- * This component represents the main dashboard of the Abuse Helper application.
- * It includes a sidebar, header, and various data visualization elements.
- */
 export default function Dashboard() {
-    const { userInfo, logout } = useAuth();
     // State for controlling sidebar visibility on mobile
     const [sidebarOpen, setSidebarOpen] = useState(false)
     // State for controlling active tab in the Report Statistics section
@@ -87,92 +73,10 @@ export default function Dashboard() {
         setSidebarOpen(!sidebarOpen)
     }
 
-    const handleLogout = async () => {
-        await logout();
-        // The App component will automatically redirect to the Login page
-    };
-
     return (
         <div className="flex h-full w-full bg-gray-100">
             {/* Sidebar */}
-            <aside className={`bg-white w-64 fixed h-full z-30 border-r border-gray-200 shadow-sm transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 flex flex-col`}>
-                <div className="p-5 flex flex-col items-center border-b border-gray-200">
-                    <img src="/bell-logo.svg" alt="Bell Logo" className="w-16 h-16" />
-                    <h2 className="text-lg font-extrabold tracking-wider" style={{ color: PANTONE_301 }}>
-                        ABUSE HELPER
-                    </h2>
-                </div>
-                {/* User info added to sidebar */}
-                <div className="py-4 px-5 border-b border-gray-200">
-                    <div className="flex items-center space-x-3">
-                        <User className="h-6 w-6" style={{ color: PANTONE_301 }} />
-                        <div>
-                            <p className="font-semibold">{userInfo?.name || 'User'}</p>
-                            <p className="text-xs text-gray-400">{userInfo?.email || 'Email'}</p>
-                            <p className="text-xs text-gray-400">
-                                Role: {userInfo?.role || 'No role assigned'}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                <nav className="mt-2 flex-grow text-sm">
-                    <a href="#" className="block py-2 px-4 bg-blue-50 border-r-4" style={{ color: PANTONE_301, borderColor: PANTONE_301 }}>
-                        <span className="flex items-center">
-                            <Home className="mr-3" size={18} />
-                            Dashboard
-                        </span>
-                    </a>
-                    <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
-                        <span className="flex items-center">
-                            <AlertTriangle className="mr-2" size={18} />
-                            Threat Reports
-                        </span>
-                    </a>
-                    <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
-                        <span className="flex items-center">
-                            <Ticket className="mr-2" size={18} />
-                            Tickets
-                        </span>
-                    </a>
-                    <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
-                        <span className="flex items-center">
-                            <Users className="mr-2" size={18} />
-                            IP Addresses
-                        </span>
-                    </a>
-                    <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
-                        <span className="flex items-center">
-                            <Mail className="mr-2" size={18} />
-                            Emails
-                        </span>
-                    </a>
-                    <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
-                        <span className="flex items-center">
-                            <BarChart2 className="mr-2" size={18} />
-                            Analytics
-                        </span>
-                    </a>
-                    <a href="#" className="block py-2 px-4 text-gray-600 hover:bg-gray-50">
-                        <span className="flex items-center">
-                            <Settings className="mr-2" size={18} />
-                            Settings
-                        </span>
-                    </a>
-                </nav>
-
-                {/* Log out button */}
-                <div className="px-4 py-2 border-t border-gray-200">
-                    <Button variant="outline" className="w-full flex items-center justify-center" onClick={handleLogout}>
-                        <LogOut className="mr-2 h-4 w-4" />
-                        Log Out
-                    </Button>
-                </div>
-
-                {/* Year fine print */}
-                <div className="p-4 text-center text-xs text-gray-500">
-                    © {new Date().getFullYear()} Abuse Helper
-                </div>
-            </aside>
+            <Sidebar isOpen={sidebarOpen} />
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden lg:ml-64">
