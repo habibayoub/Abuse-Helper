@@ -4,6 +4,7 @@ import Dashboard from '@/components/page/dashboard'
 import EmailsPage from '@/components/page/emails'
 import Login from '@/components/page/login'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import TicketsPage from '@/components/page/tickets'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const { authenticated } = useAuth();
@@ -42,6 +43,14 @@ function App() {
                             element={
                                 <ProtectedRoute>
                                     <EmailsPage />
+                                </ProtectedRoute>
+                            } 
+                        />
+                        <Route 
+                            path="/tickets" 
+                            element={
+                                <ProtectedRoute>
+                                    <TicketsPage />
                                 </ProtectedRoute>
                             } 
                         />
