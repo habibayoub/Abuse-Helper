@@ -1,42 +1,10 @@
-use crate::models::ticket::{Ticket, TicketStatus, TicketType};
+use crate::{
+    llm::{analyze_threat, ThreatAnalysis},
+    models::ticket::{CreateTicketRequest, Ticket, TicketStatus, TicketType},
+};
 use actix_web::{get, post, put, web, HttpResponse};
 use deadpool_postgres::Pool;
-use regex::Regex;
 use uuid::Uuid;
-
-/// Function to extract IP addresses from text
-fn extract_ips(text: &str) -> Vec<String> {
-    let ip_regex = Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").unwrap();
-    ip_regex
-        .find_iter(text)
-        .map(|m| m.as_str().to_string())
-        .collect()
-}
-
-/// Function to determine ticket type from content
-fn determine_ticket_type(subject: &str, body: &str) -> TicketType {
-    let text = format!("{} {}", subject, body).to_lowercase();
-
-    if text.contains("malware") || text.contains("virus") || text.contains("trojan") {
-        TicketType::Malware
-    } else if text.contains("phishing") || text.contains("credential") || text.contains("login") {
-        TicketType::Phishing
-    } else if text.contains("scam") || text.contains("fraud") {
-        TicketType::Scam
-    } else if text.contains("spam") {
-        TicketType::Spam
-    } else {
-        TicketType::Other
-    }
-}
-
-#[derive(serde::Deserialize)]
-pub struct CreateTicketRequest {
-    pub email_id: String,
-    pub subject: String,
-    pub description: String,
-    pub ticket_type: Option<TicketType>,
-}
 
 /// POST /tickets endpoint to create a new ticket
 #[post("/tickets")]
@@ -49,21 +17,62 @@ pub async fn create_ticket(
         Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
     };
 
-    let ticket_data = ticket_req.into_inner(); // Extract the data first
-    let ip_addresses = extract_ips(&ticket_data.description);
-    let ip_address = ip_addresses.first().map(|s| s.to_string());
+    let ticket_data = ticket_req.into_inner();
 
-    let ticket_type = ticket_data
-        .ticket_type
-        .unwrap_or_else(|| determine_ticket_type(&ticket_data.subject, &ticket_data.description));
+    // Analyze content with AI if analysis data not provided
+    let (
+        ticket_type,
+        confidence_score,
+        identified_threats,
+        extracted_indicators,
+        analysis_summary,
+        ip_address,
+    ) = if ticket_data.ticket_type.is_none() {
+        let content = format!(
+            "Subject: {}\nContent: {}",
+            ticket_data.subject, ticket_data.description
+        );
+        match analyze_threat(&content).await {
+            Ok(analysis) => {
+                let ip = analysis
+                    .extracted_indicators
+                    .iter()
+                    .find(|indicator| indicator.contains('.'))
+                    .cloned();
+                (
+                    analysis.threat_type,
+                    Some(analysis.confidence_score),
+                    Some(analysis.identified_threats),
+                    Some(analysis.extracted_indicators),
+                    Some(analysis.summary),
+                    ip,
+                )
+            }
+            Err(e) => {
+                log::error!("Failed to analyze ticket content: {}", e);
+                (TicketType::Other, None, None, None, None, None)
+            }
+        }
+    } else {
+        (
+            ticket_data.ticket_type.unwrap(),
+            ticket_data.confidence_score,
+            ticket_data.identified_threats,
+            ticket_data.extracted_indicators,
+            ticket_data.analysis_summary,
+            None,
+        )
+    };
 
     let ticket_id = Uuid::new_v4();
 
     let stmt = match client
         .prepare(
-            "INSERT INTO tickets (id, ticket_type, ip_address, email_id, subject, description) 
-             VALUES ($1, $2, $3, $4, $5, $6) 
-             RETURNING id",
+            "INSERT INTO tickets (
+                id, ticket_type, ip_address, email_id, subject, description,
+                confidence_score, identified_threats, extracted_indicators, analysis_summary
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+            RETURNING id",
         )
         .await
     {
@@ -81,6 +90,10 @@ pub async fn create_ticket(
                 &ticket_data.email_id,
                 &ticket_data.subject,
                 &ticket_data.description,
+                &confidence_score,
+                &identified_threats,
+                &extracted_indicators,
+                &analysis_summary,
             ],
         )
         .await

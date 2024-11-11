@@ -19,8 +19,8 @@ import api from '@/lib/axios'  // Import the axios instance
 // Define the Email interface based on the backend model
 interface Email {
     id: string
-    from: string
-    to: string[]
+    sender: string
+    recipients: string[]
     subject: string
     body: string
     received_at: string
@@ -45,6 +45,7 @@ export default function EmailsPage() {
     const fetchEmails = async () => {
         try {
             const response = await api.get('/email/list')
+            console.log('Fetched emails:', response.data)
             setEmails(response.data)
         } catch (err) {
             console.error('Error fetching emails:', err)
@@ -173,8 +174,8 @@ export default function EmailsPage() {
                                                 </form>
                                             </DialogContent>
                                         </Dialog>
-                                        <Button 
-                                            variant="outline" 
+                                        <Button
+                                            variant="outline"
                                             size="sm"
                                             onClick={fetchEmails}
                                         >
@@ -205,10 +206,10 @@ export default function EmailsPage() {
                                                 {emails.map((email) => (
                                                     <tr key={email.id} className="text-gray-700">
                                                         <td className="px-4 py-3">
-                                                            {truncateText(email.from, 30)}
+                                                            {truncateText(email.sender, 30)}
                                                         </td>
                                                         <td className="px-4 py-3">
-                                                            {truncateText(email.to.join(", "), 30)}
+                                                            {truncateText(email.recipients.join(", "), 30)}
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             {truncateText(email.subject, 40)}
@@ -220,8 +221,8 @@ export default function EmailsPage() {
                                                             {format(new Date(email.received_at), 'MMM d, yyyy HH:mm')}
                                                         </td>
                                                         <td className="px-4 py-3">
-                                                            <Button 
-                                                                variant="outline" 
+                                                            <Button
+                                                                variant="outline"
                                                                 size="sm"
                                                                 onClick={() => {
                                                                     // TODO: Implement view email details

@@ -1,8 +1,6 @@
+use crate::models::nctns::NCTNS;
 use actix_web::{get, web, HttpResponse};
 use deadpool_postgres::Pool;
-
-use crate::models::nctns::NCTNS;
-
 // GET /nctns/list endpoint to list all NCTNS records
 #[get("/list")]
 pub async fn list(pool: web::Data<Pool>) -> HttpResponse {

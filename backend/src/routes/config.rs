@@ -45,7 +45,7 @@ pub fn configure_routes() -> Scope {
                         .service(routes::email::list_emails),
                 )
                 .service(
-                    web::scope("/ticket")
+                    web::scope("/tickets")
                         .wrap(Auth::new().role("user"))
                         .service(routes::ticket::create_ticket)
                         .service(routes::ticket::list_tickets)

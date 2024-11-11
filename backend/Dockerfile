@@ -2,10 +2,9 @@
 FROM rust:buster AS base
 
 ENV USER=root
-ENV ROCKET_ADDRESS=0.0.0.0
-ENV ROCKET_ENV=development
 ENV RUST_LOG=debug
-
+ENV RUSTFLAGS="-C target-feature=+fp16"
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-feature=+fp16"
 WORKDIR /code
 RUN cargo init
 COPY Cargo.toml /code/Cargo.toml
@@ -23,7 +22,7 @@ FROM base AS dev-envs
 EXPOSE 8000
 RUN <<EOF
 apt-get update
-apt-get install -y --no-install-recommends git
+apt-get install -y --no-install-recommends git build-essential cmake libssl-dev pkg-config
 EOF
 
 RUN <<EOF
@@ -41,8 +40,9 @@ RUN cargo build --release --offline
 
 FROM debian:buster-slim
 
-ENV ROCKET_ENV=production
 ENV RUST_LOG=debug
+ENV RUSTFLAGS="-C target-feature=+fp16"
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-feature=+fp16"
 
 EXPOSE 8000
 

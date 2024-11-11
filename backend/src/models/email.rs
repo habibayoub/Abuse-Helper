@@ -12,25 +12,27 @@ pub struct OutgoingEmail {
 }
 
 /// Struct representing a received or stored email
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Email {
     pub id: String,
-    pub from: String,
-    pub to: Vec<String>,
+    pub sender: String,
+    pub recipients: Vec<String>,
     pub subject: String,
     pub body: String,
     pub received_at: DateTime<Utc>,
+    pub analyzed: bool,
 }
 
 impl From<Row> for Email {
     fn from(row: Row) -> Self {
         Email {
             id: row.get("id"),
-            from: row.get("from"),
-            to: row.get("to"),
+            sender: row.get("sender"),
+            recipients: row.get("recipients"),
             subject: row.get("subject"),
             body: row.get("body"),
             received_at: row.get("received_at"),
+            analyzed: row.get("analyzed"),
         }
     }
 }

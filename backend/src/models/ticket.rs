@@ -9,6 +9,16 @@ pub enum TicketType {
     Phishing,
     Scam,
     Spam,
+    DDoS,
+    Botnet,
+    DataBreach,
+    IdentityTheft,
+    Ransomware,
+    CyberStalking,
+    IntellectualPropertyTheft,
+    ChildAbuse,
+    Harassment,
+    UnauthorizedAccess,
     Other,
 }
 
@@ -19,6 +29,16 @@ impl ToString for TicketType {
             TicketType::Phishing => "Phishing",
             TicketType::Scam => "Scam",
             TicketType::Spam => "Spam",
+            TicketType::DDoS => "DDoS",
+            TicketType::Botnet => "Botnet",
+            TicketType::DataBreach => "DataBreach",
+            TicketType::IdentityTheft => "IdentityTheft",
+            TicketType::Ransomware => "Ransomware",
+            TicketType::CyberStalking => "CyberStalking",
+            TicketType::IntellectualPropertyTheft => "IntellectualPropertyTheft",
+            TicketType::ChildAbuse => "ChildAbuse",
+            TicketType::Harassment => "Harassment",
+            TicketType::UnauthorizedAccess => "UnauthorizedAccess",
             TicketType::Other => "Other",
         }
         .to_string()
@@ -32,6 +52,16 @@ impl From<String> for TicketType {
             "Phishing" => TicketType::Phishing,
             "Scam" => TicketType::Scam,
             "Spam" => TicketType::Spam,
+            "DDoS" => TicketType::DDoS,
+            "Botnet" => TicketType::Botnet,
+            "DataBreach" => TicketType::DataBreach,
+            "IdentityTheft" => TicketType::IdentityTheft,
+            "Ransomware" => TicketType::Ransomware,
+            "CyberStalking" => TicketType::CyberStalking,
+            "IntellectualPropertyTheft" => TicketType::IntellectualPropertyTheft,
+            "ChildAbuse" => TicketType::ChildAbuse,
+            "Harassment" => TicketType::Harassment,
+            "UnauthorizedAccess" => TicketType::UnauthorizedAccess,
             _ => TicketType::Other,
         }
     }
@@ -77,6 +107,10 @@ pub struct Ticket {
     pub email_id: String,
     pub subject: String,
     pub description: String,
+    pub confidence_score: Option<f32>,
+    pub identified_threats: Option<Vec<String>>,
+    pub extracted_indicators: Option<Vec<String>>,
+    pub analysis_summary: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -91,8 +125,24 @@ impl From<Row> for Ticket {
             email_id: row.get("email_id"),
             subject: row.get("subject"),
             description: row.get("description"),
+            confidence_score: row.get("confidence_score"),
+            identified_threats: row.get("identified_threats"),
+            extracted_indicators: row.get("extracted_indicators"),
+            analysis_summary: row.get("analysis_summary"),
             created_at: row.get("created_at"),
             updated_at: row.get("updated_at"),
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateTicketRequest {
+    pub email_id: String,
+    pub subject: String,
+    pub description: String,
+    pub ticket_type: Option<TicketType>,
+    pub confidence_score: Option<f32>,
+    pub identified_threats: Option<Vec<String>>,
+    pub extracted_indicators: Option<Vec<String>>,
+    pub analysis_summary: Option<String>,
 }
