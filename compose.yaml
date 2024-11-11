@@ -140,7 +140,7 @@ services:
           sleep 1
         done
         echo "Ollama is up, pulling model..."
-        ollama pull ALIENTELLIGENCE/cybersecuritythreatanalysisv2
+        ollama pull llama3.2:1b
         wait
 
 networks:
