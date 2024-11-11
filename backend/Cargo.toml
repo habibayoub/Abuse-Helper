@@ -46,9 +46,7 @@ whois-rust = { version = "1.6.0", features = ["tokio"] }
 config = "0.13"
 mailparse = "0.14"
 regex = "1.11.1"
-kalosm = { git = "https://github.com/floneum/floneum", version = "0.3.2", features = [
-    "language",
-] }
+ollama-rs = "0.2.1"
 
 
 [dev-dependencies]

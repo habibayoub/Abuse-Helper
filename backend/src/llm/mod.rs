@@ -1,45 +1,33 @@
 use crate::models::ticket::TicketType;
-use kalosm::language::*;
 use log;
+use ollama_rs::generation::completion::request::GenerationRequest;
+use ollama_rs::Ollama;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThreatAnalysis {
     pub threat_type: TicketType,
-    pub confidence_score: f32,
+    pub confidence_score: f64,
     pub identified_threats: Vec<String>,
     pub extracted_indicators: Vec<String>,
     pub summary: String,
 }
 
 pub async fn analyze_threat(text: &str) -> Result<ThreatAnalysis, String> {
-    let model = match Llama::builder()
-        .with_source(LlamaSource::llama_3_2_3b_chat())
-        .build()
-        .await
-    {
-        Ok(m) => m,
-        Err(e) => {
-            log::error!("Failed to initialize Llama model: {}", e);
-            return Err(format!("Failed to initialize Llama model: {}", e));
-        }
-    };
-
-    let mut chat = Chat::builder(model)
-        .with_system_prompt(
-            "You are a security threat analyzer. Analyze content for security threats, scams, or abuse. \
-             Provide analysis in a structured format."
-        )
-        .build();
+    let ollama = Ollama::new("http://llm".to_string(), 11434);
 
     let prompt = format!(
-        r#"Analyze this content for security threats, scams, or abuse:
+        r#"<|im_start|>system
+You are a security threat analyzer. Analyze content for security threats, scams, or abuse.
+<|im_end|>
+<|im_start|>user
+Analyze this content for security threats, scams, or abuse:
 
 Content: {}
 
 Classify the type of threat from these categories:
 Malware, Phishing, Scam, Spam, DDoS, Botnet, DataBreach, IdentityTheft, 
-Ransomware, CyberStalking, IntellectualPropertyTheft, ChildAbuse, 
+Ransomware, CyberStalking, IntellectualPropertyTheft, 
 Harassment, UnauthorizedAccess, Other
 
 Provide:
@@ -54,17 +42,26 @@ Type: [category]
 Confidence: [0-1]
 Indicators: [list]
 Extracted: [list]
-Summary: [text]"#,
+Summary: [text]
+<|im_end|>
+<|im_start|>assistant"#,
         text
     );
 
-    let response = chat.add_message(&prompt).all_text().await;
+    let request = GenerationRequest::new(
+        "ALIENTELLIGENCE/cybersecuritythreatanalysisv2".to_string(),
+        prompt,
+    );
 
-    log::debug!("Raw LLM response: {}", response);
+    let response = ollama.generate(request).await.map_err(|e| {
+        log::error!("Failed to generate response: {}", e);
+        format!("Failed to generate response: {}", e)
+    })?;
 
-    // If we get an empty response, return a default analysis
-    if response.trim().is_empty() {
-        log::warn!("Empty response from LLM, using default analysis");
+    log::info!("Raw model response: {}", response.response);
+
+    if response.response.trim().is_empty() {
+        log::warn!("Empty response from model, using default analysis");
         return Ok(ThreatAnalysis {
             threat_type: TicketType::Other,
             confidence_score: 0.0,
@@ -74,7 +71,7 @@ Summary: [text]"#,
         });
     }
 
-    parse_llm_response(&response)
+    parse_llm_response(&response.response)
 }
 
 fn parse_llm_response(response: &str) -> Result<ThreatAnalysis, String> {
@@ -99,7 +96,6 @@ fn parse_llm_response(response: &str) -> Result<ThreatAnalysis, String> {
                 "Ransomware" => TicketType::Ransomware,
                 "CyberStalking" => TicketType::CyberStalking,
                 "IntellectualPropertyTheft" => TicketType::IntellectualPropertyTheft,
-                "ChildAbuse" => TicketType::ChildAbuse,
                 "Harassment" => TicketType::Harassment,
                 "UnauthorizedAccess" => TicketType::UnauthorizedAccess,
                 _ => TicketType::Other,
@@ -131,11 +127,15 @@ fn parse_llm_response(response: &str) -> Result<ThreatAnalysis, String> {
         }
     }
 
-    Ok(ThreatAnalysis {
+    let result = ThreatAnalysis {
         threat_type,
         confidence_score,
         identified_threats,
         extracted_indicators,
         summary,
-    })
+    };
+
+    log::info!("Parsed LLM response: {:?}", result);
+
+    Ok(result)
 }

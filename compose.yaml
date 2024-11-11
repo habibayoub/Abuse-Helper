@@ -40,6 +40,7 @@ services:
       - SMTP_PORT=1025
       - IMAP_SERVER=mailcrab
       - IMAP_PORT=1143
+      - OLLAMA_HOST=http://llm:11434
     networks:
       - client-side
       - server-side
@@ -49,8 +50,12 @@ services:
       - ./backend/src:/code/src
       - backend-cache:/code/target
     depends_on:
-      - db
-      - mailcrab
+      llm:
+        condition: service_healthy
+      db:
+        condition: service_started
+      mailcrab:
+        condition: service_started
 
   db:
     image: postgres:12-alpine
@@ -108,6 +113,36 @@ services:
     networks:
       - server-side
 
+  llm:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_models:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - server-side
+    tty: true
+    restart: always
+    pull_policy: always
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:11434" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        apt-get update && apt-get install -y curl
+        ollama serve &
+        sleep 5
+        until curl -s -f http://localhost:11434 > /dev/null 2>&1; do
+          echo "Waiting for Ollama to start..."
+          sleep 1
+        done
+        echo "Ollama is up, pulling model..."
+        ollama pull ALIENTELLIGENCE/cybersecuritythreatanalysisv2
+        wait
+
 networks:
   client-side: {}
   server-side: {}
@@ -116,3 +151,4 @@ volumes:
   backend-cache: {}
   db-data: {}
   keycloak-data: {}
+  ollama_models: {}
