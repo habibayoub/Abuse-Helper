@@ -18,6 +18,9 @@ pub enum TicketType {
     IntellectualPropertyTheft,
     Harassment,
     UnauthorizedAccess,
+    CopyrightViolation,
+    BruteForce,
+    C2,
     Other,
 }
 
@@ -37,6 +40,9 @@ impl ToString for TicketType {
             TicketType::IntellectualPropertyTheft => "IntellectualPropertyTheft",
             TicketType::Harassment => "Harassment",
             TicketType::UnauthorizedAccess => "UnauthorizedAccess",
+            TicketType::CopyrightViolation => "CopyrightViolation",
+            TicketType::BruteForce => "BruteForce",
+            TicketType::C2 => "C2",
             TicketType::Other => "Other",
         }
         .to_string()
@@ -59,6 +65,9 @@ impl From<String> for TicketType {
             "IntellectualPropertyTheft" => TicketType::IntellectualPropertyTheft,
             "Harassment" => TicketType::Harassment,
             "UnauthorizedAccess" => TicketType::UnauthorizedAccess,
+            "CopyrightViolation" => TicketType::CopyrightViolation,
+            "BruteForce" => TicketType::BruteForce,
+            "C2" => TicketType::C2,
             _ => TicketType::Other,
         }
     }

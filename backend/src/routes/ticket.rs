@@ -1,5 +1,5 @@
 use crate::{
-    llm::{analyze_threat, ThreatAnalysis},
+    llm::analyze_threat,
     models::ticket::{CreateTicketRequest, Ticket, TicketStatus, TicketType},
 };
 use actix_web::{get, post, put, web, HttpResponse};

@@ -37,11 +37,11 @@ function AxiosInterceptor({ children }: { children: React.ReactNode }) {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const { authenticated } = useAuth();
-    
+
     if (authenticated && window.location.pathname === '/') {
         return <Navigate to="/dashboard" />;
     }
-    
+
     return authenticated ? <>{children}</> : <Navigate to="/login" />;
 }
 
@@ -60,29 +60,29 @@ function App() {
                         <Routes>
                             <Route path="/login" element={<LoginRoute />} />
                             <Route path="/" element={<Navigate to="/dashboard" />} />
-                            <Route 
-                                path="/dashboard" 
+                            <Route
+                                path="/dashboard"
                                 element={
                                     <ProtectedRoute>
                                         <Dashboard />
                                     </ProtectedRoute>
-                                } 
+                                }
                             />
-                            <Route 
-                                path="/emails" 
+                            <Route
+                                path="/emails"
                                 element={
                                     <ProtectedRoute>
                                         <EmailsPage />
                                     </ProtectedRoute>
-                                } 
+                                }
                             />
-                            <Route 
-                                path="/tickets" 
+                            <Route
+                                path="/tickets"
                                 element={
                                     <ProtectedRoute>
                                         <TicketsPage />
                                     </ProtectedRoute>
-                                } 
+                                }
                             />
                             <Route path="*" element={<Navigate to="/dashboard" />} />
                         </Routes>

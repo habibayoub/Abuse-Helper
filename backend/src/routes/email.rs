@@ -192,7 +192,7 @@ async fn fetch_emails(pool: &Pool) -> Result<Vec<Email>, String> {
         .await
         .map_err(|e| format!("Failed to parse Mailcrab response: {}", e))?;
 
-    log::debug!("Fetched messages: {:#?}", messages); // Debug log to see raw response
+    log::info!("Fetched messages: {:#?}", messages); // Debug log to see raw response
 
     let mut emails = Vec::new();
 
@@ -211,18 +211,21 @@ async fn fetch_emails(pool: &Pool) -> Result<Vec<Email>, String> {
             .get::<_, bool>(0);
 
         if exists {
+            log::info!("Skipping already analyzed email: {}", email_id);
             continue;
         }
 
         // Get the email content
         let content_response = client
-            .get(format!("{}/api/messages/{}/plain", mailcrab_url, email_id))
+            .get(format!("{}/api/message/{}", mailcrab_url, email_id))
             .send()
             .await
-            .map_err(|e| format!("Failed to fetch email content: {}", e))?
-            .text()
+            .map_err(|e| format!("Failed to fetch email content: {}", e))?;
+
+        let content_response: Value = content_response
+            .json()
             .await
-            .map_err(|e| format!("Failed to get email text: {}", e))?;
+            .map_err(|e| format!("Failed to parse email content: {}", e))?;
 
         let email = Email {
             id: email_id,
@@ -235,7 +238,7 @@ async fn fetch_emails(pool: &Pool) -> Result<Vec<Email>, String> {
                 .as_str()
                 .unwrap_or("No Subject")
                 .to_string(),
-            body: content_response, // Use the content from the separate API call
+            body: content_response["text"].as_str().unwrap_or("").to_string(),
             received_at: DateTime::parse_from_rfc3339(
                 message["date"].as_str().unwrap_or(&Utc::now().to_rfc3339()),
             )
@@ -244,7 +247,7 @@ async fn fetch_emails(pool: &Pool) -> Result<Vec<Email>, String> {
             analyzed: false,
         };
 
-        log::debug!("Parsed email: {:#?}", email); // Debug log to see parsed email
+        log::info!("Parsed email: {:#?}", email); // Debug log to see parsed email
 
         if let Err(e) = create_ticket_from_email(pool, &email).await {
             log::error!("Failed to create ticket for email {}: {}", email.id, e);
@@ -252,7 +255,12 @@ async fn fetch_emails(pool: &Pool) -> Result<Vec<Email>, String> {
             log::info!("Created ticket for email: {}", email.id);
         }
 
-        emails.push(email.clone());
+        // Mark as analyzed immediately after creating ticket
+        if let Err(e) = mark_email_as_analyzed(pool, &email.id).await {
+            log::error!("Failed to mark email as analyzed: {}", e);
+        }
+
+        emails.push(email);
     }
 
     Ok(emails)
@@ -266,25 +274,5 @@ pub async fn list_emails(pool: web::Data<Pool>) -> HttpResponse {
         Err(e) => {
             HttpResponse::InternalServerError().json(format!("Failed to fetch emails: {}", e))
         }
-    }
-}
-
-/// Function to poll for new emails
-pub async fn poll(pool: Pool) {
-    match fetch_emails(&pool).await {
-        Ok(emails) => {
-            if !emails.is_empty() {
-                log::info!("Found {} new emails", emails.len());
-                for email in emails {
-                    log::info!(
-                        "Email from: {}, subject: {}, received at: {}",
-                        email.sender,
-                        email.subject,
-                        email.received_at
-                    );
-                }
-            }
-        }
-        Err(e) => log::error!("Failed to poll emails: {}", e),
     }
 }

@@ -10,7 +10,7 @@ import {
     Ticket,
     Users,
     LogOut,
-    User
+    User,
 } from "lucide-react"
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -23,15 +23,14 @@ interface NavItemProps {
 
 const NavItem = ({ href, icon, children, isActive }: NavItemProps) => {
     const navigate = useNavigate();
-    
+
     return (
         <a
             href="#"
-            className={`block py-2 px-4 ${
-                isActive 
-                    ? 'bg-blue-50 border-r-4 border-[#0067a4] text-[#0067a4]' 
-                    : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            className={`block py-2 px-4 ${isActive
+                ? 'bg-blue-50 border-r-4 border-[#0067a4] text-[#0067a4]'
+                : 'text-gray-600 hover:bg-gray-50'
+                }`}
             onClick={(e) => {
                 e.preventDefault();
                 navigate(href);
@@ -52,7 +51,7 @@ interface SidebarProps {
 export default function Sidebar({ isOpen }: SidebarProps) {
     const { userInfo, logout } = useAuth();
     const location = useLocation();
-    
+
     const isCurrentPath = (path: string) => location.pathname === path;
 
     return (
@@ -63,7 +62,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                     ABUSE HELPER
                 </h2>
             </div>
-            
+
             <div className="py-4 px-5 border-b border-gray-200">
                 <div className="flex items-center space-x-3">
                     <User className="h-6 w-6 text-[#0067a4]" />
@@ -78,50 +77,50 @@ export default function Sidebar({ isOpen }: SidebarProps) {
             </div>
 
             <nav className="mt-2 flex-grow text-sm">
-                <NavItem 
-                    href="/dashboard" 
+                <NavItem
+                    href="/dashboard"
                     icon={<Home className="mr-3" size={18} />}
                     isActive={isCurrentPath('/dashboard')}
                 >
                     Dashboard
                 </NavItem>
-                <NavItem 
-                    href="/reports" 
+                <NavItem
+                    href="/reports"
                     icon={<AlertTriangle className="mr-2" size={18} />}
                     isActive={isCurrentPath('/reports')}
                 >
                     Threat Reports
                 </NavItem>
-                <NavItem 
-                    href="/tickets" 
+                <NavItem
+                    href="/tickets"
                     icon={<Ticket className="mr-2" size={18} />}
                     isActive={isCurrentPath('/tickets')}
                 >
                     Tickets
                 </NavItem>
-                <NavItem 
-                    href="/ip-addresses" 
+                <NavItem
+                    href="/ip-addresses"
                     icon={<Users className="mr-2" size={18} />}
                     isActive={isCurrentPath('/ip-addresses')}
                 >
                     IP Addresses
                 </NavItem>
-                <NavItem 
-                    href="/emails" 
+                <NavItem
+                    href="/emails"
                     icon={<Mail className="mr-2" size={18} />}
                     isActive={isCurrentPath('/emails')}
                 >
                     Emails
                 </NavItem>
-                <NavItem 
-                    href="/analytics" 
+                <NavItem
+                    href="/analytics"
                     icon={<BarChart2 className="mr-2" size={18} />}
                     isActive={isCurrentPath('/analytics')}
                 >
                     Analytics
                 </NavItem>
-                <NavItem 
-                    href="/settings" 
+                <NavItem
+                    href="/settings"
                     icon={<Settings className="mr-2" size={18} />}
                     isActive={isCurrentPath('/settings')}
                 >

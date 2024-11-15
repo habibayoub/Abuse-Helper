@@ -13,7 +13,7 @@ pub async fn list(pool: web::Data<Pool>, claims: web::ReqData<Claims>) -> HttpRe
     let client = match pool.get().await {
         Ok(client) => client,
         Err(err) => {
-            log::debug!("unable to get postgres client: {:?}", err);
+            log::info!("unable to get postgres client: {:?}", err);
             return HttpResponse::InternalServerError().json("unable to get postgres client");
         }
     };
@@ -22,7 +22,7 @@ pub async fn list(pool: web::Data<Pool>, claims: web::ReqData<Claims>) -> HttpRe
     match Customer::all(&**client).await {
         Ok(list) => HttpResponse::Ok().json(list),
         Err(err) => {
-            log::debug!("unable to fetch customers: {:?}", err);
+            log::info!("unable to fetch customers: {:?}", err);
             return HttpResponse::InternalServerError().json("unable to fetch customers");
         }
     }
@@ -41,7 +41,7 @@ pub async fn find(
     let client = match pool.get().await {
         Ok(client) => client,
         Err(err) => {
-            log::debug!("unable to get postgres client: {:?}", err);
+            log::info!("unable to get postgres client: {:?}", err);
             return HttpResponse::InternalServerError().json("unable to get postgres client");
         }
     };

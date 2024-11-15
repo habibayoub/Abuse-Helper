@@ -46,9 +46,9 @@ pub fn verify_jwt(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
 }
 
 pub async fn check_auth(req: &ServiceRequest, pool: &Pool) -> Result<Claims, Error> {
-    log::debug!("Checking auth for path: {}", req.path());
+    log::info!("Checking auth for path: {}", req.path());
     if let Some(auth_header) = req.headers().get("Authorization") {
-        log::debug!("Authorization header found: {:?}", auth_header);
+        log::info!("Authorization header found: {:?}", auth_header);
         let auth_str = auth_header
             .to_str()
             .map_err(|_| actix_web::error::ErrorUnauthorized("Invalid authorization header"))?;
@@ -82,7 +82,7 @@ pub async fn check_auth(req: &ServiceRequest, pool: &Pool) -> Result<Claims, Err
             },
         }
     } else {
-        log::debug!("No Authorization header found");
+        log::info!("No Authorization header found");
         Err(actix_web::error::ErrorUnauthorized(
             "No authorization header",
         ))
