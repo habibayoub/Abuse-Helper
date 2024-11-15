@@ -3,18 +3,18 @@ use crate::{
     models::email::{Email, OutgoingEmail},
 };
 use actix_web::{get, post, web, HttpResponse};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use deadpool_postgres::Pool;
 use lettre::{message::header::ContentType, message::Mailbox, AsyncTransport, Message};
-use reqwest;
-use serde_json::Value;
+use mailparse::{parse_mail, MailHeaderMap};
+use sha2::{Digest, Sha256};
 use std::env;
+use std::net::TcpStream;
 use uuid::Uuid;
-
 /// Function to send an email using SMTP
 async fn send_email(email: OutgoingEmail) -> Result<String, String> {
-    let smtp_server = env::var("SMTP_SERVER").unwrap_or_else(|_| "mailcrab".to_string());
-    let smtp_port = env::var("SMTP_PORT").unwrap_or_else(|_| "1025".to_string());
+    let smtp_server = env::var("SMTP_SERVER").unwrap_or_else(|_| "mailserver".to_string());
+    let smtp_port = env::var("SMTP_PORT").unwrap_or_else(|_| "3025".to_string());
     let smtp_username = env::var("SMTP_USERNAME").unwrap_or_else(|_| "test@localhost".to_string());
 
     let recipient = email.recipient.email.clone();
@@ -32,7 +32,7 @@ async fn send_email(email: OutgoingEmail) -> Result<String, String> {
 
     let mailer =
         lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::builder_dangerous(smtp_server)
-            .port(smtp_port.parse::<u16>().unwrap_or(1025))
+            .port(smtp_port.parse::<u16>().unwrap_or(3025))
             .build();
 
     mailer
@@ -177,91 +177,124 @@ async fn mark_email_as_analyzed(pool: &Pool, email_id: &str) -> Result<(), Strin
 
 // Modify fetch_emails to only process unanalyzed emails
 async fn fetch_emails(pool: &Pool) -> Result<Vec<Email>, String> {
-    let mailcrab_url =
-        env::var("MAILCRAB_URL").unwrap_or_else(|_| "http://mailcrab:1080".to_string());
+    let imap_server = std::env::var("IMAP_SERVER").unwrap_or_else(|_| "mailserver".to_string());
+    let imap_port = std::env::var("IMAP_PORT")
+        .unwrap_or_else(|_| "3993".to_string())
+        .parse::<u16>()
+        .unwrap_or(3993);
 
-    let client = reqwest::Client::new();
-    let response = client
-        .get(format!("{}/api/messages", mailcrab_url))
-        .send()
-        .await
-        .map_err(|e| format!("Failed to fetch from Mailcrab API: {}", e))?;
+    log::info!("IMAP server: {}", imap_server);
+    log::info!("IMAP port: {}", imap_port);
 
-    let messages: Vec<Value> = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse Mailcrab response: {}", e))?;
+    let tls = match native_tls::TlsConnector::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+    {
+        Ok(tls) => tls,
+        Err(e) => return Err(format!("Failed to create TLS connector: {}", e)),
+    };
 
-    log::info!("Fetched messages: {:#?}", messages); // Debug log to see raw response
+    log::info!("Connecting to IMAP server: {}", imap_server);
+
+    let client = imap::connect((imap_server.clone(), imap_port), imap_server, &tls).unwrap();
+
+    log::info!("Connected to IMAP server");
+
+    // the client we have here is unauthenticated.
+    // to do anything useful with the e-mails, we need to log in
+    let mut imap_session = match client.login("test@localhost", "password").map_err(|e| e.0) {
+        Ok(imap_session) => imap_session,
+        Err(e) => return Err(format!("Failed to login to IMAP: {:?}", e)),
+    };
+
+    log::info!("Logged in to IMAP server");
+
+    // Select the INBOX
+    let mailbox = imap_session
+        .select("INBOX")
+        .map_err(|e| format!("Failed to select INBOX: {}", e))?;
+
+    log::info!("Selected INBOX");
 
     let mut emails = Vec::new();
 
-    for message in messages {
-        let email_id = message["id"].as_str().unwrap_or("").to_string();
+    // Fetch all messages
+    if mailbox.exists > 0 {
+        log::info!("INBOX has {} messages", mailbox.exists);
 
-        // Check if email has already been analyzed
-        let pg_client = pool.get().await.map_err(|e| e.to_string())?;
-        let exists = pg_client
-            .query_one(
-                "SELECT EXISTS(SELECT 1 FROM emails WHERE id = $1 AND analyzed = TRUE)",
-                &[&email_id],
-            )
-            .await
-            .map_err(|e| e.to_string())?
-            .get::<_, bool>(0);
+        let sequence_set = format!("1:{}", mailbox.exists);
+        let messages = imap_session
+            .fetch(sequence_set, "RFC822")
+            .map_err(|e| format!("Failed to fetch messages: {}", e))?;
 
-        if exists {
-            log::info!("Skipping already analyzed email: {}", email_id);
-            continue;
+        log::info!("Fetched {} messages", messages.len());
+
+        for message in messages.iter() {
+            log::info!("Message: {:?}", message);
+            if let Some(body) = message.body() {
+                log::info!("Body: {:?}", body);
+                if let Ok(parsed_mail) = parse_mail(body) {
+                    let headers = &parsed_mail.headers;
+                    let from = headers.get_first_value("From").unwrap_or_default();
+                    let to = headers.get_all_values("To");
+                    let subject = headers.get_first_value("Subject").unwrap_or_default();
+                    let date = headers.get_first_value("Date").unwrap_or_default();
+
+                    // Create a deterministic ID based on email metadata
+                    let id_string = format!("{}:{}:{}:{}", from, to.join(","), subject, date);
+                    let mut hasher = Sha256::new();
+                    hasher.update(id_string.as_bytes());
+                    let email_id = format!("{:x}", hasher.finalize());
+
+                    // Check if email has already been analyzed
+                    let pg_client = pool.get().await.map_err(|e| e.to_string())?;
+                    let exists = pg_client
+                        .query_one(
+                            "SELECT EXISTS(SELECT 1 FROM emails WHERE id = $1 AND analyzed = TRUE)",
+                            &[&email_id],
+                        )
+                        .await
+                        .map_err(|e| e.to_string())?
+                        .get::<_, bool>(0);
+
+                    if exists {
+                        continue;
+                    }
+
+                    let body = parsed_mail.get_body().unwrap_or_default();
+
+                    let email = Email {
+                        id: email_id.clone(),
+                        sender: from,
+                        recipients: to,
+                        subject,
+                        body,
+                        received_at: Utc::now(),
+                        analyzed: false,
+                    };
+
+                    // Create ticket for the email
+                    if let Err(e) = create_ticket_from_email(pool, &email).await {
+                        log::error!("Failed to create ticket for email {}: {}", email.id, e);
+                    } else {
+                        // Mark email as analyzed after successful ticket creation
+                        if let Err(e) = mark_email_as_analyzed(pool, &email.id).await {
+                            log::error!("Failed to mark email {} as analyzed: {}", email.id, e);
+                        } else {
+                            log::info!("Created ticket and marked email as analyzed: {}", email.id);
+                        }
+                    }
+
+                    emails.push(email);
+                }
+            }
         }
-
-        // Get the email content
-        let content_response = client
-            .get(format!("{}/api/message/{}", mailcrab_url, email_id))
-            .send()
-            .await
-            .map_err(|e| format!("Failed to fetch email content: {}", e))?;
-
-        let content_response: Value = content_response
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse email content: {}", e))?;
-
-        let email = Email {
-            id: email_id,
-            sender: message["from"]["email"]
-                .as_str()
-                .unwrap_or("Unknown")
-                .to_string(),
-            recipients: vec![message["to"][0]["email"].as_str().unwrap_or("").to_string()],
-            subject: message["subject"]
-                .as_str()
-                .unwrap_or("No Subject")
-                .to_string(),
-            body: content_response["text"].as_str().unwrap_or("").to_string(),
-            received_at: DateTime::parse_from_rfc3339(
-                message["date"].as_str().unwrap_or(&Utc::now().to_rfc3339()),
-            )
-            .unwrap_or_else(|_| Utc::now().into())
-            .with_timezone(&Utc),
-            analyzed: false,
-        };
-
-        log::info!("Parsed email: {:#?}", email); // Debug log to see parsed email
-
-        if let Err(e) = create_ticket_from_email(pool, &email).await {
-            log::error!("Failed to create ticket for email {}: {}", email.id, e);
-        } else {
-            log::info!("Created ticket for email: {}", email.id);
-        }
-
-        // Mark as analyzed immediately after creating ticket
-        if let Err(e) = mark_email_as_analyzed(pool, &email.id).await {
-            log::error!("Failed to mark email as analyzed: {}", e);
-        }
-
-        emails.push(email);
     }
+
+    // Logout
+    imap_session
+        .logout()
+        .map_err(|e| format!("Failed to logout: {}", e))?;
 
     Ok(emails)
 }

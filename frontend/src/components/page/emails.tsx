@@ -32,28 +32,45 @@ interface EmailForm {
     body: string
 }
 
+
+interface SendEmailRequest {
+    recipient: {
+        email: string;
+    };
+    subject: string;
+    body: string;
+}
+
 export default function EmailsPage() {
     const [emails, setEmails] = useState<Email[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [sendingEmail, setSendingEmail] = useState(false);
+    const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
-        fetchEmails()
-    }, [])
+        fetchEmails();
+        // Set up polling every minute
+        const interval = setInterval(fetchEmails, 60000);
+        return () => clearInterval(interval);
+    }, []);
 
     const fetchEmails = async () => {
+        setRefreshing(true);
         try {
-            const response = await api.get('/email/list')
-            console.log('Fetched emails:', response.data)
-            setEmails(response.data)
+            const response = await api.get('/email/list');
+            setEmails(response.data);
+            setError(null);
         } catch (err) {
-            console.error('Error fetching emails:', err)
-            setError('Failed to fetch emails')
+            console.error('Error fetching emails:', err);
+            setError('Failed to fetch emails');
         } finally {
-            setLoading(false)
+            setRefreshing(false);
+            setLoading(false);
         }
-    }
+    };
 
     const toggleSidebar = () => {
         setSidebarOpen(!sidebarOpen)
@@ -64,30 +81,36 @@ export default function EmailsPage() {
         return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text
     }
 
-    const { register, handleSubmit, reset } = useForm<EmailForm>()
+    const { register, handleSubmit, reset, formState: { errors } } = useForm<EmailForm>({
+        defaultValues: {
+            to: '',
+            subject: '',
+            body: ''
+        }
+    });
 
     const onSubmit = async (data: EmailForm) => {
+        setSendingEmail(true);
         try {
-            const response = await api.post('/email/send', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
+            const emailRequest: SendEmailRequest = {
+                recipient: {
+                    email: data.to,
                 },
-                body: JSON.stringify({
-                    recipient: data.to,
-                    subject: data.subject,
-                    body: data.body,
-                }),
-            })
+                subject: data.subject,
+                body: data.body
+            };
 
-            // Refresh emails list and reset form
-            fetchEmails()
-            reset()
+            await api.post('/email/send', emailRequest);
+            await fetchEmails();
+            reset();
+            setError(null);
         } catch (err) {
-            console.error('Error sending email:', err)
-            setError('Failed to send email')
+            console.error('Error sending email:', err);
+            setError('Failed to send email');
+        } finally {
+            setSendingEmail(false);
         }
-    }
+    };
 
     return (
         <div className="flex h-full w-full bg-gray-100">
@@ -139,8 +162,15 @@ export default function EmailsPage() {
                                                         <Input
                                                             id="to"
                                                             placeholder="recipient@example.com"
-                                                            {...register("to", { required: true })}
+                                                            {...register("to", {
+                                                                required: "Email is required",
+                                                                pattern: {
+                                                                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                                                                    message: "Invalid email address"
+                                                                }
+                                                            })}
                                                         />
+                                                        {errors.to && <p className="text-sm text-red-500">{errors.to.message}</p>}
                                                     </div>
                                                     <div className="space-y-2">
                                                         <label htmlFor="subject" className="text-sm font-medium">
@@ -167,8 +197,14 @@ export default function EmailsPage() {
                                                         <Button type="button" variant="outline" onClick={() => reset()}>
                                                             Cancel
                                                         </Button>
-                                                        <Button type="submit">
-                                                            <Send className="mr-2 h-4 w-4" /> Send
+                                                        <Button type="submit" disabled={sendingEmail}>
+                                                            {sendingEmail ? (
+                                                                "Sending..."
+                                                            ) : (
+                                                                <>
+                                                                    <Send className="mr-2 h-4 w-4" /> Send
+                                                                </>
+                                                            )}
                                                         </Button>
                                                     </div>
                                                 </form>
@@ -178,8 +214,15 @@ export default function EmailsPage() {
                                             variant="outline"
                                             size="sm"
                                             onClick={fetchEmails}
+                                            disabled={refreshing}
                                         >
-                                            <Mail className="mr-2 h-4 w-4" /> Refresh
+                                            {refreshing ? (
+                                                "Refreshing..."
+                                            ) : (
+                                                <>
+                                                    <Mail className="mr-2 h-4 w-4" /> Refresh
+                                                </>
+                                            )}
                                         </Button>
                                     </div>
                                 </div>
@@ -221,16 +264,46 @@ export default function EmailsPage() {
                                                             {format(new Date(email.received_at), 'MMM d, yyyy HH:mm')}
                                                         </td>
                                                         <td className="px-4 py-3">
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    // TODO: Implement view email details
-                                                                    console.log('View email:', email.id)
-                                                                }}
-                                                            >
-                                                                <Eye className="h-4 w-4" />
-                                                            </Button>
+                                                            <Dialog onOpenChange={(open) => !open && setSelectedEmail(null)}>
+                                                                <DialogTrigger asChild>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => setSelectedEmail(email)}
+                                                                    >
+                                                                        <Eye className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DialogTrigger>
+                                                                <DialogContent className="sm:max-w-[725px]">
+                                                                    <DialogHeader>
+                                                                        <DialogTitle>Email Details</DialogTitle>
+                                                                    </DialogHeader>
+                                                                    {selectedEmail && (
+                                                                        <div className="space-y-4">
+                                                                            <div>
+                                                                                <h3 className="font-semibold">From</h3>
+                                                                                <p>{selectedEmail.sender}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <h3 className="font-semibold">To</h3>
+                                                                                <p>{selectedEmail.recipients.join(", ")}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <h3 className="font-semibold">Subject</h3>
+                                                                                <p>{selectedEmail.subject}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <h3 className="font-semibold">Content</h3>
+                                                                                <p className="whitespace-pre-wrap">{selectedEmail.body}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <h3 className="font-semibold">Received</h3>
+                                                                                <p>{format(new Date(selectedEmail.received_at), 'PPpp')}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </DialogContent>
+                                                            </Dialog>
                                                         </td>
                                                     </tr>
                                                 ))}

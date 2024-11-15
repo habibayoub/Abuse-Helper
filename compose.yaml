@@ -36,10 +36,10 @@ services:
       - KEYCLOAK_REALM=Abuse-Helper
       - KEYCLOAK_CLIENT_ID=Abuse-Helper
       - KEYCLOAK_CLIENT_SECRET=**********
-      - SMTP_SERVER=mailcrab
-      - SMTP_PORT=1025
-      - IMAP_SERVER=mailcrab
-      - IMAP_PORT=1143
+      - SMTP_SERVER=mailserver
+      - SMTP_PORT=3025
+      - IMAP_SERVER=mailserver
+      - IMAP_PORT=3993
       - OLLAMA_HOST=http://llm:11434
     networks:
       - client-side
@@ -54,7 +54,7 @@ services:
         condition: service_healthy
       db:
         condition: service_started
-      mailcrab:
+      mailserver:
         condition: service_started
 
   db:
@@ -104,14 +104,22 @@ services:
     volumes:
       - keycloak-data:/var/lib/postgresql/data
 
-  mailcrab:
-    image: marlonb/mailcrab:latest
+  mailserver:
+    image: greenmail/standalone:2.1.0-alpha-4
     ports:
-      - "1025:1025" # SMTP port
-      - "1080:1080" # Web interface
-      - "1143:1143" # IMAP port
+      - "3025:3025" # SMTP
+      - "3993:3993" # IMAPS
+    environment:
+      - GREENMAIL_OPTS=-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users=test@localhost:password -Dgreenmail.auth.disabled -Dgreenmail.verbose
+
     networks:
       - server-side
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "3993" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: always
 
   llm:
     image: ollama/ollama:latest

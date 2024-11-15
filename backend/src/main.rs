@@ -13,12 +13,12 @@ use log;
 use middleware::Logger;
 
 async fn populate_test_emails() -> Result<(), String> {
-    let smtp_server = std::env::var("SMTP_SERVER").unwrap_or_else(|_| "mailcrab".to_string());
-    let smtp_port = std::env::var("SMTP_PORT").unwrap_or_else(|_| "1025".to_string());
+    let smtp_server = std::env::var("SMTP_SERVER").unwrap_or_else(|_| "mailserver".to_string());
+    let smtp_port = std::env::var("SMTP_PORT").unwrap_or_else(|_| "3025".to_string());
 
     let mailer =
         lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::builder_dangerous(smtp_server)
-            .port(smtp_port.parse::<u16>().unwrap_or(1025))
+            .port(smtp_port.parse::<u16>().unwrap_or(3025))
             .build();
 
     let templates = vec![
@@ -56,7 +56,7 @@ async fn populate_test_emails() -> Result<(), String> {
 
     for (subject, body, from) in templates {
         let from_address = from.parse::<Mailbox>().map_err(|e| e.to_string())?;
-        let to_address = "test.user@example.com"
+        let to_address = "test@localhost"
             .parse::<Mailbox>()
             .map_err(|e| e.to_string())?;
 
