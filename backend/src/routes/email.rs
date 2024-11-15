@@ -232,8 +232,8 @@ async fn fetch_emails(pool: &Pool) -> Result<Vec<Email>, String> {
         for message in messages.iter() {
             log::info!("Message: {:?}", message);
             if let Some(body) = message.body() {
-                log::info!("Body: {:?}", body);
                 if let Ok(parsed_mail) = parse_mail(body) {
+                    log::info!("Parsed mail: {:?}", parsed_mail);
                     let headers = &parsed_mail.headers;
                     let from = headers.get_first_value("From").unwrap_or_default();
                     let to = headers.get_all_values("To");

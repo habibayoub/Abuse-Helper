@@ -53,8 +53,8 @@ export default function EmailsPage() {
     useEffect(() => {
         fetchEmails();
         // Set up polling every minute
-        const interval = setInterval(fetchEmails, 60000);
-        return () => clearInterval(interval);
+        // const interval = setInterval(fetchEmails, 60000);
+        // return () => clearInterval(interval);
     }, []);
 
     const fetchEmails = async () => {

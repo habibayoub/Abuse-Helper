@@ -30,7 +30,7 @@ You are smart and can understand the context of the content and are not easily f
 Analyze this content for security threats:
 {text}
 
-Respond with a single JSON object in this EXACT format (MAKE SURE YOU INCLUDE ALL FIELDS: threat_type, confidence_score, identified_threats, extracted_indicators, summary) (values for identified_threats and extracted_indicators must be retrieved from the content provided, DO NOT MAKE UP ANY VALUES):
+Respond with a single JSON object in this EXACT format (MAKE SURE THERE ARE NO TRAILING COMMAS AT THE END OF THE JSON OBJECT, MAKE SURE YOU INCLUDE ALL FIELDS: threat_type, confidence_score, identified_threats, extracted_indicators, summary) (values for identified_threats and extracted_indicators must be retrieved from the content provided, DO NOT MAKE UP ANY VALUES):
 {{
     "threat_type": "only one of the following values: Malware, Phishing, Scam, Spam, DDoS, Botnet, DataBreach, IdentityTheft, Ransomware, CyberStalking, IntellectualPropertyTheft, Harassment, UnauthorizedAccess, CopyrightViolation, BruteForce, C2, Other",
     "confidence_score": 0.0 to 1.0,
