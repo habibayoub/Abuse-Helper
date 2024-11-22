@@ -1,149 +1,99 @@
-use crate::{
-    llm::analyze_threat,
-    models::ticket::{CreateTicketRequest, Ticket, TicketStatus, TicketType},
-};
+use crate::models::ticket::{CreateTicketRequest, Ticket, TicketStatus, TicketType};
 use actix_web::{get, post, put, web, HttpResponse};
 use deadpool_postgres::Pool;
 use uuid::Uuid;
 
-/// POST /tickets endpoint to create a new ticket
+/// Create a new ticket
+///
+/// Returns a 201 Created on success with the ticket ID
+/// Returns a 400 Bad Request if validation fails
+/// Returns a 500 Internal Server Error if saving fails
 #[post("/tickets")]
 pub async fn create_ticket(
     pool: web::Data<Pool>,
     ticket_req: web::Json<CreateTicketRequest>,
 ) -> HttpResponse {
-    let client = match pool.get().await {
-        Ok(client) => client,
-        Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
-    };
-
     let ticket_data = ticket_req.into_inner();
 
-    // Analyze content with AI if analysis data not provided
-    let (
-        ticket_type,
-        confidence_score,
-        identified_threats,
-        extracted_indicators,
-        analysis_summary,
-        ip_address,
-    ) = if ticket_data.ticket_type.is_none() {
-        let content = format!(
-            "Subject: {}\nContent: {}",
-            ticket_data.subject, ticket_data.description
-        );
-        match analyze_threat(&content).await {
-            Ok(analysis) => {
-                let ip = analysis
-                    .extracted_indicators
-                    .iter()
-                    .find(|indicator| indicator.contains('.'))
-                    .cloned();
-                (
-                    analysis.threat_type,
-                    Some(analysis.confidence_score),
-                    Some(analysis.identified_threats),
-                    Some(analysis.extracted_indicators),
-                    Some(analysis.summary),
-                    ip,
-                )
-            }
-            Err(e) => {
-                log::error!("Failed to analyze ticket content: {}", e);
-                (TicketType::Other, None, None, None, None, None)
-            }
+    let ticket = Ticket::new(
+        ticket_data.ticket_type.unwrap_or(TicketType::Other),
+        ticket_data.email_id,
+        ticket_data.subject,
+        ticket_data.description,
+        None,
+        ticket_data.confidence_score.map(|c| c as f32),
+        ticket_data.identified_threats,
+        ticket_data.extracted_indicators,
+        ticket_data.analysis_summary,
+    );
+
+    if let Err(e) = ticket.validate() {
+        log::warn!("Ticket validation failed: {}", e);
+        return HttpResponse::BadRequest().json(e.to_string());
+    }
+
+    match ticket.save(&pool).await {
+        Ok(id) => {
+            log::info!("Created ticket {}", id);
+            HttpResponse::Created().json(id)
         }
-    } else {
-        (
-            ticket_data.ticket_type.unwrap(),
-            ticket_data.confidence_score,
-            ticket_data.identified_threats,
-            ticket_data.extracted_indicators,
-            ticket_data.analysis_summary,
-            None,
-        )
-    };
-
-    let ticket_id = Uuid::new_v4();
-
-    let stmt = match client
-        .prepare(
-            "INSERT INTO tickets (
-                id, ticket_type, ip_address, email_id, subject, description,
-                confidence_score, identified_threats, extracted_indicators, analysis_summary
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
-            RETURNING id",
-        )
-        .await
-    {
-        Ok(stmt) => stmt,
-        Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
-    };
-
-    match client
-        .query_one(
-            &stmt,
-            &[
-                &ticket_id,
-                &ticket_type.to_string(),
-                &ip_address,
-                &ticket_data.email_id,
-                &ticket_data.subject,
-                &ticket_data.description,
-                &confidence_score,
-                &identified_threats,
-                &extracted_indicators,
-                &analysis_summary,
-            ],
-        )
-        .await
-    {
-        Ok(_) => HttpResponse::Created().json(ticket_id),
-        Err(e) => HttpResponse::InternalServerError().json(e.to_string()),
+        Err(e) => {
+            log::error!("Failed to create ticket: {}", e);
+            HttpResponse::InternalServerError().json(e.to_string())
+        }
     }
 }
 
+/// List all tickets
+///
+/// Returns a 200 OK with the list of tickets
+/// Returns a 500 Internal Server Error if fetching fails
 #[get("/tickets")]
 pub async fn list_tickets(pool: web::Data<Pool>) -> HttpResponse {
-    let client = match pool.get().await {
-        Ok(client) => client,
-        Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
-    };
-
-    match client
-        .query("SELECT * FROM tickets ORDER BY created_at DESC", &[])
-        .await
-    {
-        Ok(rows) => {
-            let tickets: Vec<Ticket> = rows.into_iter().map(Ticket::from).collect();
+    match Ticket::list_all(&pool).await {
+        Ok(tickets) => {
+            log::info!("Retrieved {} tickets", tickets.len());
             HttpResponse::Ok().json(tickets)
         }
-        Err(e) => HttpResponse::InternalServerError().json(e.to_string()),
+        Err(e) => {
+            log::error!("Failed to list tickets: {}", e);
+            HttpResponse::InternalServerError().json(e.to_string())
+        }
     }
 }
 
+/// Update ticket status
+///
+/// Returns a 200 OK on success
+/// Returns a 404 Not Found if ticket doesn't exist
+/// Returns a 500 Internal Server Error if update fails
 #[put("/tickets/{id}/status")]
 pub async fn update_ticket_status(
     pool: web::Data<Pool>,
     path: web::Path<Uuid>,
     status: web::Json<TicketStatus>,
 ) -> HttpResponse {
-    let client = match pool.get().await {
-        Ok(client) => client,
-        Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
-    };
-
     let id = path.into_inner();
-    let status = status.into_inner();
+    let new_status = status.into_inner();
 
-    match client
-        .execute(
-            "UPDATE tickets SET status = $1, updated_at = NOW() WHERE id = $2",
-            &[&status.to_string(), &id],
-        )
-        .await
-    {
-        Ok(_) => HttpResponse::Ok().finish(),
-        Err(e) => HttpResponse::InternalServerError().json(e.to_string()),
+    match Ticket::find_by_id(&pool, id).await {
+        Ok(Some(mut ticket)) => match ticket.update_status(&pool, new_status).await {
+            Ok(_) => {
+                log::info!("Updated ticket {} status to {:?}", id, new_status);
+                HttpResponse::Ok().finish()
+            }
+            Err(e) => {
+                log::error!("Failed to update ticket {} status: {}", id, e);
+                HttpResponse::InternalServerError().json(e.to_string())
+            }
+        },
+        Ok(None) => {
+            log::warn!("Ticket {} not found", id);
+            HttpResponse::NotFound().json("Ticket not found")
+        }
+        Err(e) => {
+            log::error!("Failed to find ticket {}: {}", id, e);
+            HttpResponse::InternalServerError().json(e.to_string())
+        }
     }
 }

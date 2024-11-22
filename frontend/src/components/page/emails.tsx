@@ -164,10 +164,6 @@ export default function EmailsPage() {
                                                             placeholder="recipient@example.com"
                                                             {...register("to", {
                                                                 required: "Email is required",
-                                                                pattern: {
-                                                                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                                                                    message: "Invalid email address"
-                                                                }
                                                             })}
                                                         />
                                                         {errors.to && <p className="text-sm text-red-500">{errors.to.message}</p>}

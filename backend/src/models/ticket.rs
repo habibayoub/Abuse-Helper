@@ -1,9 +1,11 @@
 use chrono::{DateTime, Utc};
+use deadpool_postgres::Pool;
 use serde::{Deserialize, Serialize};
 use tokio_postgres::Row;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize)]
+/// Types of security incidents that can be reported
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum TicketType {
     Malware,
     Phishing,
@@ -73,7 +75,7 @@ impl From<String> for TicketType {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum TicketStatus {
     Open,
     InProgress,
@@ -101,6 +103,12 @@ impl From<String> for TicketStatus {
             "Resolved" => TicketStatus::Resolved,
             _ => TicketStatus::Open,
         }
+    }
+}
+
+impl Default for TicketStatus {
+    fn default() -> Self {
+        TicketStatus::Open
     }
 }
 
@@ -141,6 +149,7 @@ impl From<Row> for Ticket {
     }
 }
 
+/// Request payload for creating a new ticket
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateTicketRequest {
     pub email_id: String,
@@ -151,4 +160,154 @@ pub struct CreateTicketRequest {
     pub identified_threats: Option<Vec<String>>,
     pub extracted_indicators: Option<Vec<String>>,
     pub analysis_summary: Option<String>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum TicketError {
+    #[error("Database error: {0}")]
+    Database(#[from] tokio_postgres::Error),
+
+    #[error("Pool error: {0}")]
+    Pool(String),
+
+    #[error("Validation error: {0}")]
+    Validation(String),
+}
+
+impl From<deadpool_postgres::PoolError> for TicketError {
+    fn from(error: deadpool_postgres::PoolError) -> Self {
+        TicketError::Pool(error.to_string())
+    }
+}
+
+impl Ticket {
+    /// Create a new ticket
+    pub fn new(
+        ticket_type: TicketType,
+        email_id: String,
+        subject: String,
+        description: String,
+        ip_address: Option<String>,
+        confidence_score: Option<f32>,
+        identified_threats: Option<Vec<String>>,
+        extracted_indicators: Option<Vec<String>>,
+        analysis_summary: Option<String>,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            ticket_type,
+            status: TicketStatus::Open,
+            ip_address,
+            email_id,
+            subject,
+            description,
+            confidence_score,
+            identified_threats,
+            extracted_indicators,
+            analysis_summary,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
+    }
+
+    /// Save ticket to database
+    pub async fn save(&self, pool: &Pool) -> Result<Uuid, TicketError> {
+        log::info!("Saving ticket {}", self.id);
+        let client = pool.get().await?;
+
+        let stmt = client
+            .prepare(
+                "INSERT INTO tickets (
+                    id, ticket_type, status, ip_address, email_id, subject, description,
+                    confidence_score, identified_threats, extracted_indicators, analysis_summary,
+                    created_at, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+                RETURNING id",
+            )
+            .await?;
+
+        client
+            .query_one(
+                &stmt,
+                &[
+                    &self.id,
+                    &self.ticket_type.to_string(),
+                    &self.status.to_string(),
+                    &self.ip_address,
+                    &self.email_id,
+                    &self.subject,
+                    &self.description,
+                    &self.confidence_score,
+                    &self.identified_threats,
+                    &self.extracted_indicators,
+                    &self.analysis_summary,
+                    &self.created_at,
+                    &self.updated_at,
+                ],
+            )
+            .await?;
+
+        Ok(self.id)
+    }
+
+    /// Update ticket status
+    pub async fn update_status(
+        &mut self,
+        pool: &Pool,
+        status: TicketStatus,
+    ) -> Result<(), TicketError> {
+        log::info!("Updating ticket {} status to {:?}", self.id, status);
+        let client = pool.get().await?;
+
+        let row = client
+            .query_one(
+                "UPDATE tickets SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING updated_at",
+                &[&status.to_string(), &self.id],
+            )
+            .await?;
+
+        self.status = status;
+        self.updated_at = row.get("updated_at");
+        Ok(())
+    }
+
+    /// List all tickets
+    pub async fn list_all(pool: &Pool) -> Result<Vec<Ticket>, TicketError> {
+        log::info!("Fetching all tickets");
+        let client = pool.get().await?;
+
+        let rows = client
+            .query("SELECT * FROM tickets ORDER BY created_at DESC", &[])
+            .await?;
+
+        Ok(rows.into_iter().map(Ticket::from).collect())
+    }
+
+    /// Find ticket by ID
+    pub async fn find_by_id(pool: &Pool, id: Uuid) -> Result<Option<Ticket>, TicketError> {
+        log::info!("Finding ticket {}", id);
+        let client = pool.get().await?;
+
+        let row = client
+            .query_opt("SELECT * FROM tickets WHERE id = $1", &[&id])
+            .await?;
+
+        Ok(row.map(Ticket::from))
+    }
+
+    /// Add validation method
+    pub fn validate(&self) -> Result<(), TicketError> {
+        if self.subject.is_empty() {
+            return Err(TicketError::Validation("Subject cannot be empty".into()));
+        }
+        if self.description.is_empty() {
+            return Err(TicketError::Validation(
+                "Description cannot be empty".into(),
+            ));
+        }
+        if self.email_id.is_empty() {
+            return Err(TicketError::Validation("Email ID cannot be empty".into()));
+        }
+        Ok(())
+    }
 }
