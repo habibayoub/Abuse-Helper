@@ -8,7 +8,7 @@ use uuid::Uuid;
 /// Returns a 201 Created on success with the ticket ID
 /// Returns a 400 Bad Request if validation fails
 /// Returns a 500 Internal Server Error if saving fails
-#[post("/tickets")]
+#[post("/create")]
 pub async fn create_ticket(
     pool: web::Data<Pool>,
     ticket_req: web::Json<CreateTicketRequest>,
@@ -21,7 +21,7 @@ pub async fn create_ticket(
         ticket_data.subject,
         ticket_data.description,
         None,
-        ticket_data.confidence_score.map(|c| c as f32),
+        ticket_data.confidence_score.map(|c| c as f64),
         ticket_data.identified_threats,
         ticket_data.extracted_indicators,
         ticket_data.analysis_summary,
@@ -48,7 +48,7 @@ pub async fn create_ticket(
 ///
 /// Returns a 200 OK with the list of tickets
 /// Returns a 500 Internal Server Error if fetching fails
-#[get("/tickets")]
+#[get("/list")]
 pub async fn list_tickets(pool: web::Data<Pool>) -> HttpResponse {
     match Ticket::list_all(&pool).await {
         Ok(tickets) => {
@@ -67,7 +67,7 @@ pub async fn list_tickets(pool: web::Data<Pool>) -> HttpResponse {
 /// Returns a 200 OK on success
 /// Returns a 404 Not Found if ticket doesn't exist
 /// Returns a 500 Internal Server Error if update fails
-#[put("/tickets/{id}/status")]
+#[put("/{id}/status")]
 pub async fn update_ticket_status(
     pool: web::Data<Pool>,
     path: web::Path<Uuid>,

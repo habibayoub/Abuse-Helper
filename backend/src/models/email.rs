@@ -222,10 +222,11 @@ impl Email {
         let stmt = client
             .prepare(
                 "INSERT INTO tickets (
-                    id, ticket_type, ip_address, email_id, subject, description,
-                    confidence_score, identified_threats, extracted_indicators, analysis_summary
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
-                RETURNING id",
+                id, ticket_type, status, ip_address, email_id, subject, description,
+                confidence_score, identified_threats, extracted_indicators, analysis_summary,
+                created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+            RETURNING id",
             )
             .await
             .map_err(|e| EmailError::Database(e.into()))?;
@@ -236,14 +237,17 @@ impl Email {
                 &[
                     &ticket_id,
                     &analysis.threat_type.to_string(),
+                    &"Open", // Default status
                     &ip_address,
                     &self.id,
                     &self.subject,
                     &enhanced_description,
-                    &analysis.confidence_score,
+                    &(analysis.confidence_score as f32),
                     &analysis.identified_threats,
                     &analysis.extracted_indicators,
                     &analysis.summary,
+                    &Utc::now(), // created_at
+                    &Utc::now(), // updated_at
                 ],
             )
             .await

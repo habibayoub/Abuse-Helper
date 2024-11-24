@@ -52,7 +52,7 @@ export default function TicketsPage() {
 
     const fetchTickets = async () => {
         try {
-            const response = await api.get('/tickets')
+            const response = await api.get('/tickets/list')
             console.log('Fetched tickets:', response.data)
             setTickets(response.data)
             setError(null)
