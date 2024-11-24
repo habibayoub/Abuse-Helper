@@ -247,6 +247,8 @@ impl Ticket {
             )
             .await?;
 
+        // Add JIRA ticket creation logic here
+
         Ok(self.id)
     }
 

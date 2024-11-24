@@ -1,4 +1,5 @@
 use crate::llm::analyze_threat;
+use crate::models::ticket::Ticket;
 use chrono::{DateTime, Utc};
 use deadpool_postgres::Pool;
 use futures::future;
@@ -207,9 +208,6 @@ impl Email {
             .find(|indicator| indicator.contains('.'))
             .cloned();
 
-        let ticket_id = Uuid::new_v4();
-        let client = pool.get().await?;
-
         let enhanced_description = format!(
             "Original Content:\n{}\n\nThreat Analysis:\n- Confidence: {}\n- Identified Threats: {}\n- Extracted Indicators: {}\n\nSummary: {}",
             self.body,
@@ -219,41 +217,22 @@ impl Email {
             analysis.summary
         );
 
-        let stmt = client
-            .prepare(
-                "INSERT INTO tickets (
-                id, ticket_type, status, ip_address, email_id, subject, description,
-                confidence_score, identified_threats, extracted_indicators, analysis_summary,
-                created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
-            RETURNING id",
-            )
-            .await
-            .map_err(|e| EmailError::Database(e.into()))?;
+        let ticket = Ticket::new(
+            analysis.threat_type,
+            self.id.clone(),
+            self.subject.clone(),
+            enhanced_description,
+            ip_address,
+            Some(analysis.confidence_score as f64),
+            Some(analysis.identified_threats),
+            Some(analysis.extracted_indicators),
+            Some(analysis.summary),
+        );
 
-        client
-            .query_one(
-                &stmt,
-                &[
-                    &ticket_id,
-                    &analysis.threat_type.to_string(),
-                    &"Open", // Default status
-                    &ip_address,
-                    &self.id,
-                    &self.subject,
-                    &enhanced_description,
-                    &(analysis.confidence_score as f32),
-                    &analysis.identified_threats,
-                    &analysis.extracted_indicators,
-                    &analysis.summary,
-                    &Utc::now(), // created_at
-                    &Utc::now(), // updated_at
-                ],
-            )
+        ticket
+            .save(pool)
             .await
-            .map_err(|e| EmailError::Pool(e.to_string()))?;
-
-        Ok(ticket_id)
+            .map_err(|e| EmailError::Pool(e.to_string()))
     }
 
     #[allow(dead_code)]
