@@ -3,7 +3,7 @@ use tokio_postgres::Error;
 use tokio_postgres::NoTls;
 
 /// Scripts to run for the up migration
-const SCRIPTS_UP: [(&str, &str); 7] = [
+const SCRIPTS_UP: [(&str, &str); 8] = [
     (
         "0001_create-customers",
         include_str!("../migrations/0001_create-customers.sql"),
@@ -31,6 +31,10 @@ const SCRIPTS_UP: [(&str, &str); 7] = [
     (
         "0007_create_tickets_table",
         include_str!("../migrations/0007_create_tickets_table.sql"),
+    ),
+    (
+        "0008_add_is_sent_to_emails",
+        include_str!("../migrations/0008_add_is_sent_to_emails.sql"),
     ),
 ];
 

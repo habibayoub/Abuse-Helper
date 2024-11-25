@@ -29,6 +29,7 @@ pub struct Email {
     pub body: String,
     pub received_at: DateTime<Utc>,
     pub analyzed: bool,
+    pub is_sent: bool,
 }
 
 /// Represents all possible errors that can occur when handling emails
@@ -137,6 +138,7 @@ impl Email {
                             body,
                             received_at: Utc::now(),
                             analyzed: false,
+                            is_sent: false,
                         });
                     }
                 }
@@ -265,6 +267,7 @@ impl Email {
             body,
             received_at: Utc::now(),
             analyzed: false,
+            is_sent: false,
         }
     }
 
@@ -275,15 +278,16 @@ impl Email {
 
         let stmt = client
             .prepare(
-                "INSERT INTO emails (id, sender, recipients, subject, body, received_at, analyzed) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)
+                "INSERT INTO emails (id, sender, recipients, subject, body, received_at, analyzed, is_sent) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                  ON CONFLICT (id) DO UPDATE SET
                     sender = EXCLUDED.sender,
                     recipients = EXCLUDED.recipients,
                     subject = EXCLUDED.subject,
                     body = EXCLUDED.body,
                     received_at = EXCLUDED.received_at,
-                    analyzed = EXCLUDED.analyzed",
+                    analyzed = EXCLUDED.analyzed,
+                    is_sent = EXCLUDED.is_sent",
             )
             .await
             .map_err(|e| EmailError::Database(e.into()))?;
@@ -299,6 +303,7 @@ impl Email {
                     &self.body,
                     &self.received_at,
                     &self.analyzed,
+                    &self.is_sent,
                 ],
             )
             .await
@@ -374,8 +379,8 @@ impl OutgoingEmail {
 
         let stmt = client
             .prepare(
-                "INSERT INTO emails (id, sender, recipients, subject, body, received_at) 
-                 VALUES ($1, $2, $3, $4, $5, $6) 
+                "INSERT INTO emails (id, sender, recipients, subject, body, received_at, is_sent, analyzed) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
                  RETURNING id",
             )
             .await
@@ -391,6 +396,8 @@ impl OutgoingEmail {
                     &self.subject,
                     &self.body,
                     &Utc::now(),
+                    &true,
+                    &false,
                 ],
             )
             .await
@@ -453,6 +460,7 @@ impl From<Row> for Email {
             body: row.get("body"),
             received_at: row.get("received_at"),
             analyzed: row.get("analyzed"),
+            is_sent: row.get("is_sent"),
         }
     }
 }

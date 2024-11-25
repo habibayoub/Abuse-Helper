@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useForm } from "react-hook-form"
 import api from '@/lib/axios'  // Import the axios instance
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 // Define the Email interface based on the backend model
 interface Email {
@@ -24,6 +25,7 @@ interface Email {
     subject: string
     body: string
     received_at: string
+    is_sent: boolean
 }
 
 interface EmailForm {
@@ -49,6 +51,7 @@ export default function EmailsPage() {
     const [sendingEmail, setSendingEmail] = useState(false);
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
     const [refreshing, setRefreshing] = useState(false);
+    const [isReply, setIsReply] = useState(false);
 
     useEffect(() => {
         fetchEmails();
@@ -81,13 +84,27 @@ export default function EmailsPage() {
         return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text
     }
 
-    const { register, handleSubmit, reset, formState: { errors } } = useForm<EmailForm>({
+    const { register, handleSubmit, reset, setValue } = useForm<EmailForm>({
         defaultValues: {
             to: '',
             subject: '',
             body: ''
         }
     });
+
+    // Function to handle reply
+    const handleReply = (email: Email) => {
+        setValue('to', email.sender);
+        setValue('subject', `Re: ${email.subject}`);
+        setValue('body', `\n\n> ${email.body.split('\n').join('\n> ')}`);
+        setIsReply(true);
+    };
+
+    // Reset form when dialog closes
+    const handleDialogClose = () => {
+        reset();
+        setIsReply(false);
+    };
 
     const onSubmit = async (data: EmailForm) => {
         setSendingEmail(true);
@@ -111,6 +128,118 @@ export default function EmailsPage() {
             setSendingEmail(false);
         }
     };
+
+    const sentEmails = emails.filter(email => email.is_sent)
+    const receivedEmails = emails.filter(email => !email.is_sent)
+
+    const EmailTable = ({ emails }: { emails: Email[] }) => (
+        <div className="overflow-x-auto">
+            <table className="w-full">
+                <thead>
+                    <tr className="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                        <th className="px-4 py-3">From</th>
+                        <th className="px-4 py-3">To</th>
+                        <th className="px-4 py-3">Subject</th>
+                        <th className="px-4 py-3">Preview</th>
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody className="bg-white divide-y">
+                    {emails.map((email) => (
+                        <tr key={email.id} className="text-gray-700">
+                            <td className="px-4 py-3">
+                                {truncateText(email.sender, 30)}
+                            </td>
+                            <td className="px-4 py-3">
+                                {truncateText(email.recipients.join(", "), 30)}
+                            </td>
+                            <td className="px-4 py-3">
+                                {truncateText(email.subject, 40)}
+                            </td>
+                            <td className="px-4 py-3">
+                                {truncateText(email.body, 50)}
+                            </td>
+                            <td className="px-4 py-3">
+                                {format(new Date(email.received_at), 'MMM d, yyyy HH:mm')}
+                            </td>
+                            <td className="px-4 py-3">
+                                <div className="flex gap-2">
+                                    <Dialog onOpenChange={(open) => !open && setSelectedEmail(null)}>
+                                        <DialogTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setSelectedEmail(email)}
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="sm:max-w-[725px]">
+                                            <DialogHeader>
+                                                <DialogTitle>Email Details</DialogTitle>
+                                            </DialogHeader>
+                                            {selectedEmail && (
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <h3 className="font-semibold">From</h3>
+                                                        <p>{selectedEmail.sender}</p>
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-semibold">To</h3>
+                                                        <p>{selectedEmail.recipients.join(", ")}</p>
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-semibold">Subject</h3>
+                                                        <p>{selectedEmail.subject}</p>
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-semibold">Content</h3>
+                                                        <p className="whitespace-pre-wrap">{selectedEmail.body}</p>
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-semibold">Date</h3>
+                                                        <p>{format(new Date(selectedEmail.received_at), 'PPpp')}</p>
+                                                    </div>
+                                                    <div className="flex justify-end">
+                                                        <Button
+                                                            variant="default"
+                                                            onClick={() => {
+                                                                handleReply(selectedEmail);
+                                                            }}
+                                                        >
+                                                            <Mail className="mr-2 h-4 w-4" /> Reply
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </DialogContent>
+                                    </Dialog>
+                                    {!email.is_sent && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                handleReply(email);
+                                            }}
+                                        >
+                                            <Mail className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+
+            {emails.length === 0 && (
+                <div className="text-center py-4 text-gray-500">
+                    No emails found
+                </div>
+            )}
+        </div>
+    )
 
     return (
         <div className="flex h-full w-full bg-gray-100">
@@ -144,7 +273,7 @@ export default function EmailsPage() {
                                         </p>
                                     </div>
                                     <div className="flex gap-2">
-                                        <Dialog>
+                                        <Dialog open={isReply} onOpenChange={(open) => !open && handleDialogClose()}>
                                             <DialogTrigger asChild>
                                                 <Button variant="default">
                                                     <Send className="mr-2 h-4 w-4" /> Send Email
@@ -152,7 +281,7 @@ export default function EmailsPage() {
                                             </DialogTrigger>
                                             <DialogContent className="sm:max-w-[525px]">
                                                 <DialogHeader>
-                                                    <DialogTitle>Send Email</DialogTitle>
+                                                    <DialogTitle>{isReply ? 'Reply to Email' : 'Send Email'}</DialogTitle>
                                                 </DialogHeader>
                                                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                                                     <div className="space-y-2">
@@ -166,7 +295,6 @@ export default function EmailsPage() {
                                                                 required: "Email is required",
                                                             })}
                                                         />
-                                                        {errors.to && <p className="text-sm text-red-500">{errors.to.message}</p>}
                                                     </div>
                                                     <div className="space-y-2">
                                                         <label htmlFor="subject" className="text-sm font-medium">
@@ -190,7 +318,7 @@ export default function EmailsPage() {
                                                         />
                                                     </div>
                                                     <div className="flex justify-end gap-2">
-                                                        <Button type="button" variant="outline" onClick={() => reset()}>
+                                                        <Button type="button" variant="outline" onClick={handleDialogClose}>
                                                             Cancel
                                                         </Button>
                                                         <Button type="submit" disabled={sendingEmail}>
@@ -229,89 +357,22 @@ export default function EmailsPage() {
                                 ) : error ? (
                                     <div className="text-center text-red-500 py-4">{error}</div>
                                 ) : (
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead>
-                                                <tr className="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
-                                                    <th className="px-4 py-3">From</th>
-                                                    <th className="px-4 py-3">To</th>
-                                                    <th className="px-4 py-3">Subject</th>
-                                                    <th className="px-4 py-3">Preview</th>
-                                                    <th className="px-4 py-3">Received</th>
-                                                    <th className="px-4 py-3">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y">
-                                                {emails.map((email) => (
-                                                    <tr key={email.id} className="text-gray-700">
-                                                        <td className="px-4 py-3">
-                                                            {truncateText(email.sender, 30)}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            {truncateText(email.recipients.join(", "), 30)}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            {truncateText(email.subject, 40)}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            {truncateText(email.body, 50)}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            {format(new Date(email.received_at), 'MMM d, yyyy HH:mm')}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <Dialog onOpenChange={(open) => !open && setSelectedEmail(null)}>
-                                                                <DialogTrigger asChild>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => setSelectedEmail(email)}
-                                                                    >
-                                                                        <Eye className="h-4 w-4" />
-                                                                    </Button>
-                                                                </DialogTrigger>
-                                                                <DialogContent className="sm:max-w-[725px]">
-                                                                    <DialogHeader>
-                                                                        <DialogTitle>Email Details</DialogTitle>
-                                                                    </DialogHeader>
-                                                                    {selectedEmail && (
-                                                                        <div className="space-y-4">
-                                                                            <div>
-                                                                                <h3 className="font-semibold">From</h3>
-                                                                                <p>{selectedEmail.sender}</p>
-                                                                            </div>
-                                                                            <div>
-                                                                                <h3 className="font-semibold">To</h3>
-                                                                                <p>{selectedEmail.recipients.join(", ")}</p>
-                                                                            </div>
-                                                                            <div>
-                                                                                <h3 className="font-semibold">Subject</h3>
-                                                                                <p>{selectedEmail.subject}</p>
-                                                                            </div>
-                                                                            <div>
-                                                                                <h3 className="font-semibold">Content</h3>
-                                                                                <p className="whitespace-pre-wrap">{selectedEmail.body}</p>
-                                                                            </div>
-                                                                            <div>
-                                                                                <h3 className="font-semibold">Received</h3>
-                                                                                <p>{format(new Date(selectedEmail.received_at), 'PPpp')}</p>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </DialogContent>
-                                                            </Dialog>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-
-                                        {emails.length === 0 && (
-                                            <div className="text-center py-4 text-gray-500">
-                                                No emails found
-                                            </div>
-                                        )}
-                                    </div>
+                                    <Tabs defaultValue="received" className="w-full">
+                                        <TabsList className="mb-4">
+                                            <TabsTrigger value="received">
+                                                Received ({receivedEmails.length})
+                                            </TabsTrigger>
+                                            <TabsTrigger value="sent">
+                                                Sent ({sentEmails.length})
+                                            </TabsTrigger>
+                                        </TabsList>
+                                        <TabsContent value="received">
+                                            <EmailTable emails={receivedEmails} />
+                                        </TabsContent>
+                                        <TabsContent value="sent">
+                                            <EmailTable emails={sentEmails} />
+                                        </TabsContent>
+                                    </Tabs>
                                 )}
                             </CardContent>
                         </Card>
