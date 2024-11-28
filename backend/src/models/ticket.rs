@@ -118,7 +118,6 @@ pub struct Ticket {
     pub ticket_type: TicketType,
     pub status: TicketStatus,
     pub ip_address: Option<String>,
-    pub email_id: String,
     pub subject: String,
     pub description: String,
     pub confidence_score: Option<f64>,
@@ -127,6 +126,8 @@ pub struct Ticket {
     pub analysis_summary: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    #[serde(default)]
+    pub email_ids: Vec<Uuid>,
 }
 
 impl From<Row> for Ticket {
@@ -136,7 +137,6 @@ impl From<Row> for Ticket {
             ticket_type: TicketType::from(row.get::<_, String>("ticket_type")),
             status: TicketStatus::from(row.get::<_, String>("status")),
             ip_address: row.get("ip_address"),
-            email_id: row.get("email_id"),
             subject: row.get("subject"),
             description: row.get("description"),
             confidence_score: row.get("confidence_score"),
@@ -145,21 +145,9 @@ impl From<Row> for Ticket {
             analysis_summary: row.get("analysis_summary"),
             created_at: row.get("created_at"),
             updated_at: row.get("updated_at"),
+            email_ids: Vec::new(),
         }
     }
-}
-
-/// Request payload for creating a new ticket
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateTicketRequest {
-    pub email_id: String,
-    pub subject: String,
-    pub description: String,
-    pub ticket_type: Option<TicketType>,
-    pub confidence_score: Option<f64>,
-    pub identified_threats: Option<Vec<String>>,
-    pub extracted_indicators: Option<Vec<String>>,
-    pub analysis_summary: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -184,7 +172,6 @@ impl Ticket {
     /// Create a new ticket
     pub fn new(
         ticket_type: TicketType,
-        email_id: String,
         subject: String,
         description: String,
         ip_address: Option<String>,
@@ -198,7 +185,6 @@ impl Ticket {
             ticket_type,
             status: TicketStatus::Open,
             ip_address,
-            email_id,
             subject,
             description,
             confidence_score,
@@ -207,6 +193,7 @@ impl Ticket {
             analysis_summary,
             created_at: Utc::now(),
             updated_at: Utc::now(),
+            email_ids: Vec::new(),
         }
     }
 
@@ -218,15 +205,15 @@ impl Ticket {
         let stmt = client
             .prepare(
                 "INSERT INTO tickets (
-                    id, ticket_type, status, ip_address, email_id, subject, description,
+                    id, ticket_type, status, ip_address, subject, description,
                     confidence_score, identified_threats, extracted_indicators, analysis_summary,
                     created_at, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::text[], $9::text[], $10, $11, $12) 
                 RETURNING id",
             )
             .await?;
 
-        client
+        let row = client
             .query_one(
                 &stmt,
                 &[
@@ -234,12 +221,11 @@ impl Ticket {
                     &self.ticket_type.to_string(),
                     &self.status.to_string(),
                     &self.ip_address,
-                    &self.email_id,
                     &self.subject,
                     &self.description,
                     &self.confidence_score,
-                    &self.identified_threats,
-                    &self.extracted_indicators,
+                    &self.identified_threats.as_ref().unwrap_or(&vec![]),
+                    &self.extracted_indicators.as_ref().unwrap_or(&vec![]),
                     &self.analysis_summary,
                     &self.created_at,
                     &self.updated_at,
@@ -247,9 +233,58 @@ impl Ticket {
             )
             .await?;
 
-        // Add JIRA ticket creation logic here
+        Ok(row.get("id"))
+    }
 
-        Ok(self.id)
+    /// Add an email to this ticket
+    pub async fn add_email(&self, pool: &Pool, email_id: &Uuid) -> Result<(), TicketError> {
+        let client = pool.get().await?;
+
+        // First verify the email exists
+        let email_exists = client
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM emails WHERE id = $1)",
+                &[&email_id],
+            )
+            .await?
+            .get::<_, bool>(0);
+
+        if !email_exists {
+            return Err(TicketError::Validation(format!(
+                "Email {} does not exist",
+                email_id
+            )));
+        }
+
+        client
+            .execute(
+                "INSERT INTO email_tickets (email_id, ticket_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                &[&email_id, &self.id],
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    /// Remove an email from this ticket
+    pub async fn remove_email(&self, pool: &Pool, email_id: &Uuid) -> Result<(), TicketError> {
+        let client = pool.get().await?;
+
+        let result = client
+            .execute(
+                "DELETE FROM email_tickets WHERE email_id = $1 AND ticket_id = $2",
+                &[&email_id, &self.id],
+            )
+            .await?;
+
+        if result == 0 {
+            return Err(TicketError::Validation(format!(
+                "Email {} is not linked to ticket {}",
+                email_id, self.id
+            )));
+        }
+
+        Ok(())
     }
 
     /// Update ticket status
@@ -273,28 +308,69 @@ impl Ticket {
         Ok(())
     }
 
-    /// List all tickets
+    /// Get all emails associated with this ticket
+    pub async fn get_emails(&self, pool: &Pool) -> Result<Vec<Uuid>, TicketError> {
+        let client = pool.get().await?;
+
+        let rows = client
+            .query(
+                "SELECT email_id FROM email_tickets WHERE ticket_id = $1",
+                &[&self.id],
+            )
+            .await?;
+
+        Ok(rows.iter().map(|row| row.get("email_id")).collect())
+    }
+
+    /// List all tickets with their associated emails
     pub async fn list_all(pool: &Pool) -> Result<Vec<Ticket>, TicketError> {
         log::info!("Fetching all tickets");
         let client = pool.get().await?;
 
         let rows = client
-            .query("SELECT * FROM tickets ORDER BY created_at DESC", &[])
+            .query(
+                "SELECT t.*, COALESCE(array_agg(et.email_id) FILTER (WHERE et.email_id IS NOT NULL), ARRAY[]::uuid[]) as email_ids 
+                 FROM tickets t 
+                 LEFT JOIN email_tickets et ON t.id = et.ticket_id 
+                 GROUP BY t.id 
+                 ORDER BY t.created_at DESC",
+                &[],
+            )
             .await?;
 
-        Ok(rows.into_iter().map(Ticket::from).collect())
+        let tickets: Vec<Ticket> = rows
+            .iter()
+            .map(|row| {
+                let mut ticket = Ticket::from(row.clone());
+                ticket.email_ids = row.get("email_ids");
+                ticket
+            })
+            .collect();
+
+        Ok(tickets)
     }
 
-    /// Find ticket by ID
+    /// Find ticket by ID with associated emails
     pub async fn find_by_id(pool: &Pool, id: Uuid) -> Result<Option<Ticket>, TicketError> {
         log::info!("Finding ticket {}", id);
         let client = pool.get().await?;
 
         let row = client
-            .query_opt("SELECT * FROM tickets WHERE id = $1", &[&id])
+            .query_opt(
+                "SELECT t.*, COALESCE(array_agg(et.email_id) FILTER (WHERE et.email_id IS NOT NULL), ARRAY[]::uuid[]) as email_ids 
+                 FROM tickets t 
+                 LEFT JOIN email_tickets et ON t.id = et.ticket_id 
+                 WHERE t.id = $1 
+                 GROUP BY t.id",
+                &[&id],
+            )
             .await?;
 
-        Ok(row.map(Ticket::from))
+        Ok(row.map(|r| {
+            let mut ticket = Ticket::from(r.clone());
+            ticket.email_ids = r.get("email_ids");
+            ticket
+        }))
     }
 
     /// Add validation method
@@ -307,9 +383,79 @@ impl Ticket {
                 "Description cannot be empty".into(),
             ));
         }
-        if self.email_id.is_empty() {
-            return Err(TicketError::Validation("Email ID cannot be empty".into()));
+        Ok(())
+    }
+
+    /// Save ticket to database using a specific client (for transactions)
+    pub async fn save_with_client(
+        &self,
+        client: &tokio_postgres::Transaction<'_>,
+    ) -> Result<Uuid, TicketError> {
+        log::info!("Saving ticket {}", self.id);
+
+        let stmt = client
+            .prepare(
+                "INSERT INTO tickets (
+                    id, ticket_type, status, ip_address, subject, description,
+                    confidence_score, identified_threats, extracted_indicators, analysis_summary,
+                    created_at, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::text[], $9::text[], $10, $11, $12) 
+                RETURNING id",
+            )
+            .await?;
+
+        let row = client
+            .query_one(
+                &stmt,
+                &[
+                    &self.id,
+                    &self.ticket_type.to_string(),
+                    &self.status.to_string(),
+                    &self.ip_address,
+                    &self.subject,
+                    &self.description,
+                    &self.confidence_score,
+                    &self.identified_threats.as_ref().unwrap_or(&vec![]),
+                    &self.extracted_indicators.as_ref().unwrap_or(&vec![]),
+                    &self.analysis_summary,
+                    &self.created_at,
+                    &self.updated_at,
+                ],
+            )
+            .await?;
+
+        Ok(row.get("id"))
+    }
+
+    /// Add an email to this ticket using a specific client (for transactions)
+    pub async fn add_email_with_client(
+        &self,
+        client: &tokio_postgres::Transaction<'_>,
+        email_id: &Uuid,
+    ) -> Result<(), TicketError> {
+        // First verify the email exists
+        let email_exists = client
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM emails WHERE id = $1)",
+                &[&email_id],
+            )
+            .await?
+            .get::<_, bool>(0);
+
+        if !email_exists {
+            return Err(TicketError::Validation(format!(
+                "Email {} does not exist",
+                email_id
+            )));
         }
+
+        client
+            .execute(
+                "INSERT INTO email_tickets (email_id, ticket_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                &[&email_id, &self.id],
+            )
+            .await?;
+
         Ok(())
     }
 }

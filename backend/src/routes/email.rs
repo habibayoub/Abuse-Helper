@@ -1,6 +1,7 @@
 use crate::models::email::{Email, EmailError, OutgoingEmail};
 use actix_web::{get, post, web, HttpResponse};
 use deadpool_postgres::Pool;
+use uuid::Uuid;
 
 /// Sends an outgoing email and saves it to the database
 ///
@@ -42,7 +43,7 @@ pub async fn list_emails(pool: web::Data<Pool>) -> HttpResponse {
     match Email::fetch_all(&pool).await {
         Ok(emails) => {
             // Find unanalyzed email IDs
-            let unanalyzed_ids: Vec<String> = emails
+            let unanalyzed_ids: Vec<Uuid> = emails
                 .iter()
                 .filter(|email| !email.analyzed)
                 .map(|email| email.id.clone())

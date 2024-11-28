@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS emails (
-    id TEXT PRIMARY KEY,
+    id UUID PRIMARY KEY,
     sender TEXT NOT NULL,
     recipients TEXT[] NOT NULL,
     subject TEXT NOT NULL,
@@ -8,6 +8,6 @@ CREATE TABLE IF NOT EXISTS emails (
     analyzed BOOLEAN DEFAULT FALSE
 );
 
-CREATE INDEX emails_sender_idx ON emails(sender);
-CREATE INDEX emails_received_at_idx ON emails(received_at);
-CREATE INDEX emails_analyzed_idx ON emails(analyzed);
+CREATE INDEX IF NOT EXISTS emails_sender_idx ON emails(sender);
+CREATE INDEX IF NOT EXISTS emails_received_at_idx ON emails(received_at);
+CREATE INDEX IF NOT EXISTS emails_analyzed_idx ON emails(analyzed);

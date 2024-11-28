@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { format } from "date-fns"
-import { Eye, Menu, Mail, Send } from "lucide-react"
+import { Eye, Menu, Mail, Send, Ticket } from "lucide-react"
 import Sidebar from '@/components/layout/Sidebar';
 import {
     Dialog,
@@ -14,8 +14,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useForm } from "react-hook-form"
-import api from '@/lib/axios'  // Import the axios instance
+import api from '@/lib/axios'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Link } from "react-router-dom"
 
 // Define the Email interface based on the backend model
 interface Email {
@@ -26,6 +28,7 @@ interface Email {
     body: string
     received_at: string
     is_sent: boolean
+    ticket_ids: string[]
 }
 
 interface EmailForm {
@@ -33,7 +36,6 @@ interface EmailForm {
     subject: string
     body: string
 }
-
 
 interface SendEmailRequest {
     recipient: {
@@ -55,9 +57,6 @@ export default function EmailsPage() {
 
     useEffect(() => {
         fetchEmails();
-        // Set up polling every minute
-        // const interval = setInterval(fetchEmails, 60000);
-        // return () => clearInterval(interval);
     }, []);
 
     const fetchEmails = async () => {
@@ -137,17 +136,24 @@ export default function EmailsPage() {
             <table className="w-full">
                 <thead>
                     <tr className="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                        <th className="px-4 py-3">ID</th>
                         <th className="px-4 py-3">From</th>
                         <th className="px-4 py-3">To</th>
                         <th className="px-4 py-3">Subject</th>
                         <th className="px-4 py-3">Preview</th>
                         <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Tickets</th>
                         <th className="px-4 py-3">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="bg-white divide-y">
                     {emails.map((email) => (
                         <tr key={email.id} className="text-gray-700">
+                            <td className="px-4 py-3">
+                                <code className="bg-gray-100 px-2 py-1 rounded text-sm">
+                                    {email.id.slice(0, 8)}
+                                </code>
+                            </td>
                             <td className="px-4 py-3">
                                 {truncateText(email.sender, 30)}
                             </td>
@@ -162,6 +168,22 @@ export default function EmailsPage() {
                             </td>
                             <td className="px-4 py-3">
                                 {format(new Date(email.received_at), 'MMM d, yyyy HH:mm')}
+                            </td>
+                            <td className="px-4 py-3">
+                                <div className="flex gap-2 flex-wrap">
+                                    {email.ticket_ids && email.ticket_ids.length > 0 ? (
+                                        email.ticket_ids.map((ticketId) => (
+                                            <Link key={ticketId} to={`/tickets/${ticketId}`}>
+                                                <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
+                                                    <Ticket className="w-3 h-3 mr-1" />
+                                                    {ticketId.slice(0, 8)}
+                                                </Badge>
+                                            </Link>
+                                        ))
+                                    ) : (
+                                        <Badge variant="outline">No tickets</Badge>
+                                    )}
+                                </div>
                             </td>
                             <td className="px-4 py-3">
                                 <div className="flex gap-2">

@@ -6,7 +6,6 @@ use futures::future;
 use lettre::{message::header::ContentType, message::Mailbox, AsyncTransport, Message};
 use mailparse::{parse_mail, MailHeaderMap};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::env;
 use tokio_postgres::Row;
 use uuid::Uuid;
@@ -22,7 +21,7 @@ pub struct OutgoingEmail {
 /// Struct representing a received or stored email
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Email {
-    pub id: String,
+    pub id: Uuid,
     pub sender: String,
     pub recipients: Vec<String>,
     pub subject: String,
@@ -30,6 +29,8 @@ pub struct Email {
     pub received_at: DateTime<Utc>,
     pub analyzed: bool,
     pub is_sent: bool,
+    #[serde(default)]
+    pub ticket_ids: Vec<Uuid>,
 }
 
 /// Represents all possible errors that can occur when handling emails
@@ -125,13 +126,8 @@ impl Email {
                         let subject = headers.get_first_value("Subject").unwrap_or_default();
                         let body = parsed_mail.get_body().unwrap_or_default();
 
-                        let id_string = format!("{}:{}:{}:{}", from, to.join(","), subject, body);
-                        let mut hasher = Sha256::new();
-                        hasher.update(id_string.as_bytes());
-                        let email_id = format!("{:x}", hasher.finalize());
-
                         emails.push(Email {
-                            id: email_id,
+                            id: Uuid::new_v4(),
                             sender: from,
                             recipients: to,
                             subject,
@@ -139,6 +135,7 @@ impl Email {
                             received_at: Utc::now(),
                             analyzed: false,
                             is_sent: false,
+                            ticket_ids: Vec::new(),
                         });
                     }
                 }
@@ -158,13 +155,27 @@ impl Email {
         let client = pool.get().await?;
 
         let rows = client
-            .query("SELECT * FROM emails ORDER BY received_at DESC", &[])
+            .query(
+                "SELECT e.*, COALESCE(array_agg(et.ticket_id) FILTER (WHERE et.ticket_id IS NOT NULL), ARRAY[]::uuid[]) as ticket_ids 
+                 FROM emails e 
+                 LEFT JOIN email_tickets et ON e.id = et.email_id 
+                 GROUP BY e.id 
+                 ORDER BY e.received_at DESC",
+                &[],
+            )
             .await
-            .map_err(|e| EmailError::Database(e.into()))?;
+            .map_err(|e| EmailError::Database(e))?;
 
-        let emails: Vec<Email> = rows.into_iter().map(Email::from).collect();
+        let emails: Vec<Email> = rows
+            .iter()
+            .map(|row| {
+                let mut email = Email::from(row.clone());
+                email.ticket_ids = row.get("ticket_ids");
+                email
+            })
+            .collect();
+
         log::info!("Found {} emails in database", emails.len());
-
         Ok(emails)
     }
 
@@ -174,7 +185,7 @@ impl Email {
 
         // Fetch from database
         let mut emails = Self::fetch_from_db(pool).await?;
-        let mut existing_ids: std::collections::HashSet<String> =
+        let mut existing_ids: std::collections::HashSet<Uuid> =
             emails.iter().map(|e| e.id.clone()).collect();
 
         // Fetch new emails from IMAP
@@ -221,7 +232,6 @@ impl Email {
 
         let ticket = Ticket::new(
             analysis.threat_type,
-            self.id.clone(),
             self.subject.clone(),
             enhanced_description,
             ip_address,
@@ -231,10 +241,107 @@ impl Email {
             Some(analysis.summary),
         );
 
-        ticket
-            .save(pool)
+        let mut client = pool.get().await?;
+        let tx = client.transaction().await?;
+
+        // Save the ticket within the transaction
+        let ticket_id = match ticket.save_with_client(&tx).await {
+            Ok(id) => id,
+            Err(e) => {
+                let _ = tx.rollback().await;
+                log::error!("Failed to save ticket: {}", e);
+                return Err(EmailError::ThreatAnalysis(e.to_string()));
+            }
+        };
+
+        // Link this email to the ticket
+        if let Err(e) = ticket.add_email_with_client(&tx, &self.id).await {
+            let _ = tx.rollback().await;
+            log::error!("Failed to link email: {}", e);
+            return Err(EmailError::ThreatAnalysis(e.to_string()));
+        }
+
+        // Commit the transaction
+        if let Err(e) = tx.commit().await {
+            log::error!("Failed to commit transaction: {}", e);
+            return Err(EmailError::Database(e));
+        }
+
+        log::info!(
+            "Created ticket {} and linked it to email {}",
+            ticket_id,
+            self.id
+        );
+        Ok(ticket_id)
+    }
+
+    /// Get associated tickets for this email
+    pub async fn get_tickets(&self, pool: &Pool) -> Result<Vec<Uuid>, EmailError> {
+        let client = pool.get().await?;
+
+        let rows = client
+            .query(
+                "SELECT ticket_id FROM email_tickets WHERE email_id = $1",
+                &[&self.id],
+            )
             .await
-            .map_err(|e| EmailError::Pool(e.to_string()))
+            .map_err(|e| EmailError::Database(e))?;
+
+        Ok(rows.iter().map(|row| row.get("ticket_id")).collect())
+    }
+
+    /// Link this email to a ticket
+    pub async fn link_ticket(&self, pool: &Pool, ticket_id: Uuid) -> Result<(), EmailError> {
+        let client = pool.get().await?;
+
+        // First verify the ticket exists
+        let ticket_exists = client
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM tickets WHERE id = $1)",
+                &[&ticket_id],
+            )
+            .await
+            .map_err(|e| EmailError::Database(e))?
+            .get::<_, bool>(0);
+
+        if !ticket_exists {
+            return Err(EmailError::Validation(format!(
+                "Ticket {} does not exist",
+                ticket_id
+            )));
+        }
+
+        client
+            .execute(
+                "INSERT INTO email_tickets (email_id, ticket_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                &[&self.id, &ticket_id],
+            )
+            .await
+            .map_err(|e| EmailError::Database(e))?;
+
+        Ok(())
+    }
+
+    /// Unlink this email from a ticket
+    pub async fn unlink_ticket(&self, pool: &Pool, ticket_id: Uuid) -> Result<(), EmailError> {
+        let client = pool.get().await?;
+
+        let result = client
+            .execute(
+                "DELETE FROM email_tickets WHERE email_id = $1 AND ticket_id = $2",
+                &[&self.id, &ticket_id],
+            )
+            .await
+            .map_err(|e| EmailError::Database(e))?;
+
+        if result == 0 {
+            return Err(EmailError::Validation(format!(
+                "Email {} is not linked to ticket {}",
+                self.id, ticket_id
+            )));
+        }
+
+        Ok(())
     }
 
     #[allow(dead_code)]
@@ -260,7 +367,7 @@ impl Email {
     /// Create a new email instance
     pub fn new(sender: String, recipients: Vec<String>, subject: String, body: String) -> Self {
         Self {
-            id: Uuid::new_v4().to_string(),
+            id: Uuid::new_v4(),
             sender,
             recipients,
             subject,
@@ -268,33 +375,18 @@ impl Email {
             received_at: Utc::now(),
             analyzed: false,
             is_sent: false,
+            ticket_ids: Vec::new(),
         }
     }
 
-    /// Save email to database, updating if it already exists
+    /// Save email to database
     pub async fn save(&self, pool: &Pool) -> Result<(), EmailError> {
-        log::info!("Saving/updating email from {}", self.sender);
         let client = pool.get().await?;
-
-        let stmt = client
-            .prepare(
-                "INSERT INTO emails (id, sender, recipients, subject, body, received_at, analyzed, is_sent) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                 ON CONFLICT (id) DO UPDATE SET
-                    sender = EXCLUDED.sender,
-                    recipients = EXCLUDED.recipients,
-                    subject = EXCLUDED.subject,
-                    body = EXCLUDED.body,
-                    received_at = EXCLUDED.received_at,
-                    analyzed = EXCLUDED.analyzed,
-                    is_sent = EXCLUDED.is_sent",
-            )
-            .await
-            .map_err(|e| EmailError::Database(e.into()))?;
 
         client
             .execute(
-                &stmt,
+                "INSERT INTO emails (id, sender, recipients, subject, body, received_at, analyzed, is_sent) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
                 &[
                     &self.id,
                     &self.sender,
@@ -307,7 +399,7 @@ impl Email {
                 ],
             )
             .await
-            .map_err(|e| EmailError::Pool(e.to_string()))?;
+            .map_err(|e| EmailError::Database(e))?;
 
         Ok(())
     }
@@ -332,7 +424,7 @@ impl Email {
     /// Process multiple emails by their IDs
     pub async fn process_batch_by_ids(
         pool: &Pool,
-        ids: &[String],
+        ids: &[Uuid],
     ) -> Result<Vec<Result<(), EmailError>>, EmailError> {
         log::info!("Processing batch of {} emails", ids.len());
         let client = pool.get().await?;
@@ -365,6 +457,66 @@ impl Email {
         }
 
         Ok(results)
+    }
+
+    /// Safely delete this email, checking for ticket associations first
+    pub async fn delete(&self, pool: &Pool) -> Result<(), EmailError> {
+        let client = pool.get().await?;
+
+        // Check if email has any associated tickets
+        let has_tickets = client
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM email_tickets WHERE email_id = $1)",
+                &[&self.id],
+            )
+            .await?
+            .get::<_, bool>(0);
+
+        if has_tickets {
+            return Err(EmailError::Validation(format!(
+                "Cannot delete email {} because it is associated with one or more tickets",
+                self.id
+            )));
+        }
+
+        // If no tickets, proceed with deletion
+        client
+            .execute("DELETE FROM emails WHERE id = $1", &[&self.id])
+            .await
+            .map_err(|e| EmailError::Database(e.into()))?;
+
+        Ok(())
+    }
+
+    /// Force delete this email and remove all ticket associations
+    pub async fn force_delete(&self, pool: &Pool) -> Result<(), EmailError> {
+        let mut client = pool.get().await?;
+        let tx = client.transaction().await?;
+
+        // Remove all ticket associations
+        if let Err(e) = tx
+            .execute("DELETE FROM email_tickets WHERE email_id = $1", &[&self.id])
+            .await
+        {
+            let _ = tx.rollback().await;
+            return Err(EmailError::Database(e));
+        }
+
+        // Delete the email
+        if let Err(e) = tx
+            .execute("DELETE FROM emails WHERE id = $1", &[&self.id])
+            .await
+        {
+            let _ = tx.rollback().await;
+            return Err(EmailError::Database(e));
+        }
+
+        // Commit the transaction
+        if let Err(e) = tx.commit().await {
+            return Err(EmailError::Database(e));
+        }
+
+        Ok(())
     }
 }
 
@@ -461,6 +613,7 @@ impl From<Row> for Email {
             received_at: row.get("received_at"),
             analyzed: row.get("analyzed"),
             is_sent: row.get("is_sent"),
+            ticket_ids: Vec::new(),
         }
     }
 }

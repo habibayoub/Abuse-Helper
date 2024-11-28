@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { format } from "date-fns"
-import { Menu, Eye, RefreshCw } from "lucide-react"
+import { Menu, Eye, RefreshCw, Mail } from "lucide-react"
 import Sidebar from '@/components/layout/Sidebar';
 import {
     Dialog,
@@ -18,6 +18,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Link } from "react-router-dom"
 import api from '@/lib/axios'
 
 interface Ticket {
@@ -25,7 +27,6 @@ interface Ticket {
     ticket_type: string;
     status: string;
     ip_address: string | null;
-    email_id: string;
     subject: string;
     description: string;
     confidence_score: number | null;
@@ -34,6 +35,7 @@ interface Ticket {
     analysis_summary: string | null;
     created_at: string;
     updated_at: string;
+    email_ids: string[];
 }
 
 export default function TicketsPage() {
@@ -142,18 +144,25 @@ export default function TicketsPage() {
                                         <table className="w-full">
                                             <thead>
                                                 <tr className="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                                                    <th className="px-4 py-3">ID</th>
                                                     <th className="px-4 py-3">Type</th>
                                                     <th className="px-4 py-3">Status</th>
                                                     <th className="px-4 py-3">Subject</th>
                                                     <th className="px-4 py-3">IP Address</th>
                                                     <th className="px-4 py-3">Confidence</th>
                                                     <th className="px-4 py-3">Created</th>
+                                                    <th className="px-4 py-3">Linked Emails</th>
                                                     <th className="px-4 py-3">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="bg-white divide-y">
                                                 {tickets.map((ticket) => (
                                                     <tr key={ticket.id} className="text-gray-700">
+                                                        <td className="px-4 py-3">
+                                                            <code className="bg-gray-100 px-2 py-1 rounded text-sm">
+                                                                {ticket.id.slice(0, 8)}
+                                                            </code>
+                                                        </td>
                                                         <td className="px-4 py-3">
                                                             {ticket.ticket_type}
                                                         </td>
@@ -175,6 +184,22 @@ export default function TicketsPage() {
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             {format(new Date(ticket.created_at), 'MMM d, yyyy HH:mm')}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex gap-2 flex-wrap">
+                                                                {ticket.email_ids && ticket.email_ids.length > 0 ? (
+                                                                    ticket.email_ids.map((emailId) => (
+                                                                        <Link key={emailId} to={`/emails/${emailId}`}>
+                                                                            <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
+                                                                                <Mail className="w-3 h-3 mr-1" />
+                                                                                {emailId.slice(0, 8)}
+                                                                            </Badge>
+                                                                        </Link>
+                                                                    ))
+                                                                ) : (
+                                                                    <Badge variant="outline">No emails</Badge>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             <Dialog>

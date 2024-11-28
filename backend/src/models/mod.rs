@@ -6,3 +6,4 @@ pub mod nctns;
 pub mod ticket;
 pub mod user;
 pub mod user_log;
+pub mod requests;

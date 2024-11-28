@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX tickets_ip_address_idx ON tickets(ip_address);
-CREATE INDEX tickets_email_id_idx ON tickets(email_id);
-CREATE INDEX tickets_ticket_type_idx ON tickets(ticket_type);
-CREATE INDEX tickets_status_idx ON tickets(status);
+CREATE INDEX IF NOT EXISTS tickets_ip_address_idx ON tickets(ip_address);
+CREATE INDEX IF NOT EXISTS tickets_email_id_idx ON tickets(email_id);
+CREATE INDEX IF NOT EXISTS tickets_ticket_type_idx ON tickets(ticket_type);
+CREATE INDEX IF NOT EXISTS tickets_status_idx ON tickets(status);

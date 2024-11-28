@@ -49,7 +49,10 @@ pub fn configure_routes() -> Scope {
                         .wrap(Auth::new().role("user"))
                         .service(routes::ticket::create_ticket)
                         .service(routes::ticket::list_tickets)
-                        .service(routes::ticket::update_ticket_status),
+                        .service(routes::ticket::update_ticket_status)
+                        .service(routes::ticket::add_email_to_ticket)
+                        .service(routes::ticket::remove_email_from_ticket)
+                        .service(routes::ticket::get_ticket_emails),
                 ),
         )
 }
