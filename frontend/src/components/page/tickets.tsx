@@ -10,6 +10,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
+    DialogFooter,
 } from "@/components/ui/dialog"
 import {
     Select,
@@ -21,6 +22,9 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Link } from "react-router-dom"
 import api from '@/lib/axios'
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 interface Ticket {
     id: string;
@@ -38,12 +42,24 @@ interface Ticket {
     email_ids: string[];
 }
 
+interface CreateTicketRequest {
+    subject: string;
+    description: string;
+    ticket_type: string;
+    email_ids: string[];
+}
+
+interface CreateTicketResponse {
+    failed_emails: [string, string][];
+}
+
 export default function TicketsPage() {
     const [tickets, setTickets] = useState<Ticket[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
+    const [showCreateDialog, setShowCreateDialog] = useState(false)
 
     useEffect(() => {
         fetchTickets()
@@ -66,9 +82,59 @@ export default function TicketsPage() {
         }
     }
 
+    const validateForm = (data: CreateTicketRequest): string | null => {
+        if (!data.subject.trim()) return "Subject is required"
+        if (!data.description.trim()) return "Description is required"
+        if (!data.ticket_type) return "Ticket type is required"
+        if (data.email_ids.some(id => !id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i))) {
+            return "Invalid email ID format"
+        }
+        return null
+    }
+
+    const handleCreateTicket = async (formData: FormData): Promise<CreateTicketResponse> => {
+        try {
+            const emailIds = formData.get('email_ids')?.toString().trim()
+            const data: CreateTicketRequest = {
+                subject: formData.get('subject')?.toString() || '',
+                description: formData.get('description')?.toString() || '',
+                ticket_type: formData.get('ticket_type')?.toString() || 'Other',
+                email_ids: emailIds ? emailIds.split(',').map(id => id.trim()) : [],
+            }
+
+            const validationError = validateForm(data)
+            if (validationError) {
+                setError(validationError)
+                throw new Error(validationError)
+            }
+
+            const response = await api.post<CreateTicketResponse>('/tickets/create', data)
+            console.log('Created ticket:', response.data)
+
+            if (response.data.failed_emails.length > 0) {
+                const failedMessages = response.data.failed_emails
+                    .map(([id, error]) => `Email ${id}: ${error}`)
+                    .join('\n')
+                setError(`Some emails could not be linked:\n${failedMessages}`)
+            } else {
+                setError(null)
+            }
+
+            fetchTickets()
+            return response.data
+        } catch (err) {
+            console.error('Error creating ticket:', err)
+            if (!error) { // Only set error if not already set by validation
+                setError(err instanceof Error ? err.message : 'Failed to create ticket')
+            }
+            throw err
+        }
+    }
+
     const updateTicketStatus = async (ticketId: string, newStatus: string) => {
         try {
-            await api.put(`/tickets/${ticketId}/status`, { status: newStatus })
+            const response = await api.put(`/tickets/${ticketId}/status`, newStatus)
+            console.log('Updated ticket status:', response.data)
             fetchTickets() // Refresh tickets after update
         } catch (err) {
             console.error('Error updating ticket status:', err)
@@ -111,6 +177,14 @@ export default function TicketsPage() {
                             </Button>
                             <h1 className="text-xl font-semibold ml-4">Tickets</h1>
                         </div>
+                        <div className="flex items-center space-x-2">
+                            <Button onClick={() => setShowCreateDialog(true)}>
+                                Create Ticket
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={fetchTickets}>
+                                <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+                            </Button>
+                        </div>
                     </div>
                 </header>
 
@@ -125,13 +199,6 @@ export default function TicketsPage() {
                                             Showing {tickets.length} tickets
                                         </p>
                                     </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={fetchTickets}
-                                    >
-                                        <RefreshCw className="mr-2 h-4 w-4" /> Refresh
-                                    </Button>
                                 </div>
                             </CardHeader>
                             <CardContent>
@@ -250,6 +317,23 @@ export default function TicketsPage() {
                                                                                     <p>{selectedTicket.analysis_summary}</p>
                                                                                 </div>
                                                                             )}
+                                                                            <div>
+                                                                                <h3 className="font-semibold">Status</h3>
+                                                                                <Select
+                                                                                    onValueChange={(value) => updateTicketStatus(selectedTicket.id, value)}
+                                                                                    defaultValue={selectedTicket.status}
+                                                                                >
+                                                                                    <SelectTrigger className="w-[180px]">
+                                                                                        <SelectValue placeholder="Update Status" />
+                                                                                    </SelectTrigger>
+                                                                                    <SelectContent>
+                                                                                        <SelectItem value="Open">Open</SelectItem>
+                                                                                        <SelectItem value="InProgress">In Progress</SelectItem>
+                                                                                        <SelectItem value="Closed">Closed</SelectItem>
+                                                                                        <SelectItem value="Resolved">Resolved</SelectItem>
+                                                                                    </SelectContent>
+                                                                                </Select>
+                                                                            </div>
                                                                         </div>
                                                                     )}
                                                                 </DialogContent>
@@ -267,26 +351,80 @@ export default function TicketsPage() {
                                         )}
                                     </div>
                                 )}
-                                {selectedTicket && (
-                                    <div className="mt-4">
-                                        <Select
-                                            onValueChange={(value) => updateTicketStatus(selectedTicket.id, value)}
-                                            defaultValue={selectedTicket.status}
-                                        >
-                                            <SelectTrigger className="w-[180px]">
-                                                <SelectValue placeholder="Update Status" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Open">Open</SelectItem>
-                                                <SelectItem value="InProgress">In Progress</SelectItem>
-                                                <SelectItem value="Closed">Closed</SelectItem>
-                                                <SelectItem value="Resolved">Resolved</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
                             </CardContent>
                         </Card>
+
+                        {/* Create Ticket Dialog */}
+                        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Create New Ticket</DialogTitle>
+                                </DialogHeader>
+                                <form onSubmit={async (e) => {
+                                    e.preventDefault()
+                                    try {
+                                        await handleCreateTicket(new FormData(e.currentTarget))
+                                        if (!error) { // Only close if no error
+                                            setShowCreateDialog(false)
+                                        }
+                                    } catch (err) {
+                                        // Error is already handled in handleCreateTicket
+                                    }
+                                }}>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <Label htmlFor="subject">Subject</Label>
+                                            <Input id="subject" name="subject" required />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="description">Description</Label>
+                                            <Textarea id="description" name="description" required />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="ticket_type">Type</Label>
+                                            <Select name="ticket_type" defaultValue="Other">
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Malware">Malware</SelectItem>
+                                                    <SelectItem value="Phishing">Phishing</SelectItem>
+                                                    <SelectItem value="Scam">Scam</SelectItem>
+                                                    <SelectItem value="Spam">Spam</SelectItem>
+                                                    <SelectItem value="DDoS">DDoS</SelectItem>
+                                                    <SelectItem value="Botnet">Botnet</SelectItem>
+                                                    <SelectItem value="DataBreach">Data Breach</SelectItem>
+                                                    <SelectItem value="IdentityTheft">Identity Theft</SelectItem>
+                                                    <SelectItem value="Ransomware">Ransomware</SelectItem>
+                                                    <SelectItem value="CyberStalking">Cyber Stalking</SelectItem>
+                                                    <SelectItem value="IntellectualPropertyTheft">IP Theft</SelectItem>
+                                                    <SelectItem value="Harassment">Harassment</SelectItem>
+                                                    <SelectItem value="UnauthorizedAccess">Unauthorized Access</SelectItem>
+                                                    <SelectItem value="CopyrightViolation">Copyright Violation</SelectItem>
+                                                    <SelectItem value="BruteForce">Brute Force</SelectItem>
+                                                    <SelectItem value="C2">Command & Control</SelectItem>
+                                                    <SelectItem value="Other">Other</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="email_ids">Email IDs (Optional)</Label>
+                                            <Input
+                                                id="email_ids"
+                                                name="email_ids"
+                                                placeholder="Comma-separated UUIDs"
+                                            />
+                                            <p className="text-sm text-gray-500 mt-1">
+                                                Leave empty to create a standalone ticket
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <DialogFooter className="mt-4">
+                                        <Button type="submit">Create</Button>
+                                    </DialogFooter>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 </main>
             </div>

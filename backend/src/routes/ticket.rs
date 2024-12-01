@@ -18,6 +18,37 @@ pub async fn create_ticket(
         return HttpResponse::BadRequest().json(e.to_string());
     }
 
+    // Create the ticket
+    let ticket = Ticket::new(
+        ticket_data.ticket_type.unwrap_or(TicketType::Other),
+        ticket_data.subject,
+        ticket_data.description,
+        None,
+        ticket_data.confidence_score,
+        ticket_data.identified_threats,
+        ticket_data.extracted_indicators,
+        ticket_data.analysis_summary,
+    );
+
+    // If no emails to link, use simple save
+    if ticket_data.email_ids.is_empty() {
+        match ticket.save(&pool).await {
+            Ok(ticket_id) => {
+                log::info!("Created standalone ticket {}", ticket_id);
+                return HttpResponse::Created().json(CreateTicketResponse {
+                    ticket_id,
+                    linked_emails: vec![],
+                    failed_emails: vec![],
+                });
+            }
+            Err(e) => {
+                log::error!("Failed to create ticket: {}", e);
+                return HttpResponse::InternalServerError().json(e.to_string());
+            }
+        }
+    }
+
+    // If we have emails to link, use transaction
     let mut client = match pool.get().await {
         Ok(client) => client,
         Err(e) => {
@@ -35,18 +66,6 @@ pub async fn create_ticket(
         }
     };
 
-    // Create the ticket
-    let ticket = Ticket::new(
-        ticket_data.ticket_type.unwrap_or(TicketType::Other),
-        ticket_data.subject,
-        ticket_data.description,
-        None,
-        ticket_data.confidence_score,
-        ticket_data.identified_threats,
-        ticket_data.extracted_indicators,
-        ticket_data.analysis_summary,
-    );
-
     // Save the ticket within the transaction
     let ticket_id = match ticket.save_with_client(&tx).await {
         Ok(id) => id,
@@ -59,6 +78,7 @@ pub async fn create_ticket(
 
     let mut linked_emails = Vec::new();
     let mut failed_emails = Vec::new();
+    let email_count = ticket_data.email_ids.len();
 
     // Try to link each email within the transaction
     for email_id in ticket_data.email_ids {
@@ -73,26 +93,25 @@ pub async fn create_ticket(
         }
     }
 
-    // If no emails were linked successfully, rollback the transaction
-    if linked_emails.is_empty() {
+    // If all email links failed and we had emails to link, rollback
+    if linked_emails.is_empty() && email_count > 0 {
         let _ = tx.rollback().await;
-        return HttpResponse::BadRequest().json("No valid emails provided to link to the ticket");
+        return HttpResponse::BadRequest().json("No valid emails could be linked to the ticket");
     }
 
-    // Commit the transaction
+    // Otherwise commit the transaction
     if let Err(e) = tx.commit().await {
         log::error!("Failed to commit transaction: {}", e);
         return HttpResponse::InternalServerError().json("Failed to commit transaction");
     }
 
-    let has_failures = !failed_emails.is_empty();
     let response = CreateTicketResponse {
         ticket_id,
-        linked_emails,
+        linked_emails: linked_emails.clone(),
         failed_emails: failed_emails.clone(),
     };
 
-    if !has_failures {
+    if failed_emails.is_empty() {
         log::info!(
             "Created ticket {} with all emails linked successfully",
             ticket_id
@@ -222,10 +241,10 @@ pub async fn list_tickets(pool: web::Data<Pool>) -> HttpResponse {
 pub async fn update_ticket_status(
     pool: web::Data<Pool>,
     path: web::Path<Uuid>,
-    status: web::Json<TicketStatus>,
+    status: web::Json<String>,
 ) -> HttpResponse {
     let id = path.into_inner();
-    let new_status = status.into_inner();
+    let new_status = TicketStatus::from(status.into_inner());
 
     match Ticket::find_by_id(&pool, id).await {
         Ok(Some(mut ticket)) => match ticket.update_status(&pool, new_status).await {
@@ -238,6 +257,24 @@ pub async fn update_ticket_status(
                 HttpResponse::InternalServerError().json(e.to_string())
             }
         },
+        Ok(None) => {
+            log::warn!("Ticket {} not found", id);
+            HttpResponse::NotFound().json("Ticket not found")
+        }
+        Err(e) => {
+            log::error!("Failed to find ticket {}: {}", id, e);
+            HttpResponse::InternalServerError().json(e.to_string())
+        }
+    }
+}
+
+/// Get a single ticket by ID
+#[get("/{id}")]
+pub async fn get_ticket(pool: web::Data<Pool>, path: web::Path<Uuid>) -> HttpResponse {
+    let id = path.into_inner();
+
+    match Ticket::find_by_id(&pool, id).await {
+        Ok(Some(ticket)) => HttpResponse::Ok().json(ticket),
         Ok(None) => {
             log::warn!("Ticket {} not found", id);
             HttpResponse::NotFound().json("Ticket not found")
