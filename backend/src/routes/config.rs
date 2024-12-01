@@ -42,7 +42,14 @@ pub fn configure_routes() -> Scope {
                     web::scope("/email")
                         .wrap(Auth::new().role("admin"))
                         .service(routes::email::send)
-                        .service(routes::email::list_emails),
+                        .service(routes::email::list_emails)
+                        .service(routes::email::process_emails)
+                        .service(routes::email::delete_email)
+                        .service(routes::email::mark_analyzed)
+                        .service(routes::email::get_email_tickets)
+                        .service(routes::email::link_to_ticket)
+                        .service(routes::email::unlink_from_ticket)
+                        .service(routes::email::force_delete_email),
                 )
                 .service(
                     web::scope("/tickets")
@@ -52,7 +59,8 @@ pub fn configure_routes() -> Scope {
                         .service(routes::ticket::update_ticket_status)
                         .service(routes::ticket::add_email_to_ticket)
                         .service(routes::ticket::remove_email_from_ticket)
-                        .service(routes::ticket::get_ticket_emails),
+                        .service(routes::ticket::get_ticket_emails)
+                        .service(routes::ticket::get_ticket),
                 ),
         )
 }

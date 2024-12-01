@@ -40,7 +40,7 @@ services:
       - SMTP_PORT=3025
       - IMAP_SERVER=mailserver
       - IMAP_PORT=3993
-      - OLLAMA_HOST=http://llm:11434
+      - OLLAMA_URL=http://llm:11434
       - ELASTICSEARCH_URL=http://elasticsearch:9200
     networks:
       - client-side
@@ -174,7 +174,7 @@ services:
         soft: 65536
         hard: 65536
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 5

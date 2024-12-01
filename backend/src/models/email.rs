@@ -344,7 +344,6 @@ impl Email {
         Ok(())
     }
 
-    #[allow(dead_code)]
     /// Process multiple emails in parallel
     pub async fn process_batch(pool: &Pool, emails: &mut [Email]) -> Vec<Result<(), EmailError>> {
         let futures: Vec<_> = emails
@@ -363,7 +362,6 @@ impl Email {
         future::join_all(futures).await
     }
 
-    #[allow(dead_code)]
     /// Create a new email instance
     pub fn new(sender: String, recipients: Vec<String>, subject: String, body: String) -> Self {
         Self {
@@ -404,7 +402,6 @@ impl Email {
         Ok(())
     }
 
-    #[allow(dead_code)]
     /// Check if the email has been analyzed
     pub fn is_analyzed(&self) -> bool {
         self.analyzed
@@ -517,6 +514,31 @@ impl Email {
         }
 
         Ok(())
+    }
+
+    /// Fetch a single email by ID
+    pub async fn fetch_by_id(pool: &Pool, id: &Uuid) -> Result<Email, EmailError> {
+        let client = pool.get().await?;
+
+        let row = client
+            .query_opt(
+                "SELECT e.*, COALESCE(array_agg(et.ticket_id) FILTER (WHERE et.ticket_id IS NOT NULL), ARRAY[]::uuid[]) as ticket_ids 
+                 FROM emails e 
+                 LEFT JOIN email_tickets et ON e.id = et.email_id 
+                 WHERE e.id = $1 
+                 GROUP BY e.id",
+                &[&id],
+            )
+            .await?;
+
+        match row {
+            Some(row) => {
+                let mut email = Email::from(row.clone());
+                email.ticket_ids = row.get("ticket_ids");
+                Ok(email)
+            }
+            None => Err(EmailError::Validation(format!("Email {} not found", id))),
+        }
     }
 }
 

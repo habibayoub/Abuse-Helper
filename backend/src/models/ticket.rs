@@ -373,19 +373,6 @@ impl Ticket {
         }))
     }
 
-    /// Add validation method
-    pub fn validate(&self) -> Result<(), TicketError> {
-        if self.subject.is_empty() {
-            return Err(TicketError::Validation("Subject cannot be empty".into()));
-        }
-        if self.description.is_empty() {
-            return Err(TicketError::Validation(
-                "Description cannot be empty".into(),
-            ));
-        }
-        Ok(())
-    }
-
     /// Save ticket to database using a specific client (for transactions)
     pub async fn save_with_client(
         &self,
