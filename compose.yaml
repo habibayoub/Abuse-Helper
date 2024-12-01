@@ -41,6 +41,7 @@ services:
       - IMAP_SERVER=mailserver
       - IMAP_PORT=3993
       - OLLAMA_HOST=http://llm:11434
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
     networks:
       - client-side
       - server-side
@@ -151,6 +152,34 @@ services:
         ollama pull llama3.2:1b
         wait
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.16.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # increase memory for production
+      - bootstrap.memory_lock=true
+      - cluster.name=abuse-helper-es
+    networks:
+      - server-side
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: always
+
 networks:
   client-side: {}
   server-side: {}
@@ -160,3 +189,4 @@ volumes:
   db-data: {}
   keycloak-data: {}
   ollama_models: {}
+  elasticsearch-data: {}

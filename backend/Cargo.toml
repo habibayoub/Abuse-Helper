@@ -49,6 +49,7 @@ regex = "1.11.1"
 ollama-rs = { version = "0.2.1", features = ["tokio"] }
 sha2 = "0.10.8"
 thiserror = "2.0.3"
+elasticsearch = "8.16.0-alpha.1"
 futures = "0.3.31"
 
 
