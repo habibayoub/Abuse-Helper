@@ -61,7 +61,6 @@ interface SearchOptions {
 interface SearchResponse {
     hits: Email[];
     total: number;
-    suggestions: string[];
 }
 
 export default function EmailsPage() {
@@ -76,7 +75,6 @@ export default function EmailsPage() {
     const [searchQuery, setSearchQuery] = useState("")
     const [searching, setSearching] = useState(false)
     const [searchFilters, setSearchFilters] = useState<SearchFilters>({})
-    const [suggestions, setSuggestions] = useState<string[]>([])
 
     useEffect(() => {
         fetchEmails();
@@ -312,11 +310,8 @@ export default function EmailsPage() {
 
             console.log("Search response:", response.data)
 
-            // Check if we have a valid response with hits
             if (response.data && response.data.hits) {
-                // No need to extract email from EmailWithHighlight anymore
                 setEmails(response.data.hits)
-                setSuggestions(response.data.suggestions || [])
                 setError(null)
             } else {
                 console.log("No emails found in search results")
@@ -340,7 +335,6 @@ export default function EmailsPage() {
         return () => clearTimeout(timeoutId)
     }, [searchQuery, searchFilters])
 
-    // Add search filters component
     const SearchFiltersComponent = () => (
         <div className="flex gap-2 items-center mt-2">
             <div className="flex items-center space-x-2">
@@ -408,19 +402,6 @@ export default function EmailsPage() {
                                             {searching && (
                                                 <div className="absolute right-2 top-2">
                                                     <RefreshCw className="h-4 w-4 animate-spin" />
-                                                </div>
-                                            )}
-                                            {suggestions.length > 0 && (
-                                                <div className="absolute w-full bg-white shadow-lg rounded-md mt-1 p-2">
-                                                    {suggestions.map((suggestion, i) => (
-                                                        <div
-                                                            key={i}
-                                                            className="p-2 hover:bg-gray-100 cursor-pointer"
-                                                            onClick={() => setSearchQuery(suggestion)}
-                                                        >
-                                                            {suggestion}
-                                                        </div>
-                                                    ))}
                                                 </div>
                                             )}
                                         </div>

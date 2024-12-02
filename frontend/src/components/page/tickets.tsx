@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { format } from "date-fns"
-import { Menu, Eye, RefreshCw, Mail } from "lucide-react"
+import { Menu, Eye, RefreshCw, Mail, Search } from "lucide-react"
 import Sidebar from '@/components/layout/Sidebar';
 import {
     Dialog,
@@ -25,6 +25,7 @@ import api from '@/lib/axios'
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface Ticket {
     id: string;
@@ -53,6 +54,51 @@ interface CreateTicketResponse {
     failed_emails: [string, string][];
 }
 
+interface SearchFilters {
+    status?: TicketStatus;
+    ticket_type?: TicketType;
+    has_emails?: boolean;
+}
+
+interface SearchOptions {
+    query: string;
+    filters?: SearchFilters;
+    from?: number;
+    size?: number;
+}
+
+interface SearchResponse {
+    hits: Ticket[];
+    total: number;
+}
+
+enum TicketType {
+    Malware = "Malware",
+    Phishing = "Phishing",
+    Scam = "Scam",
+    Spam = "Spam",
+    DDoS = "DDoS",
+    Botnet = "Botnet",
+    DataBreach = "DataBreach",
+    IdentityTheft = "IdentityTheft",
+    Ransomware = "Ransomware",
+    CyberStalking = "CyberStalking",
+    IntellectualPropertyTheft = "IntellectualPropertyTheft",
+    Harassment = "Harassment",
+    UnauthorizedAccess = "UnauthorizedAccess",
+    CopyrightViolation = "CopyrightViolation",
+    BruteForce = "BruteForce",
+    C2 = "C2",
+    Other = "Other"
+}
+
+enum TicketStatus {
+    Open = "Open",
+    InProgress = "InProgress",
+    Closed = "Closed",
+    Resolved = "Resolved"
+}
+
 export default function TicketsPage() {
     const [tickets, setTickets] = useState<Ticket[]>([])
     const [loading, setLoading] = useState(true)
@@ -60,6 +106,9 @@ export default function TicketsPage() {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
     const [showCreateDialog, setShowCreateDialog] = useState(false)
+    const [searchQuery, setSearchQuery] = useState("")
+    const [searching, setSearching] = useState(false)
+    const [searchFilters, setSearchFilters] = useState<SearchFilters>({})
 
     useEffect(() => {
         fetchTickets()
@@ -165,6 +214,128 @@ export default function TicketsPage() {
         }
     }
 
+    const handleSearch = async (query: string) => {
+        if (!query.trim() && !Object.keys(searchFilters).length) {
+            fetchTickets()
+            return
+        }
+
+        setSearching(true)
+        try {
+            const searchOptions: SearchOptions = {
+                query: query.trim(),
+                filters: searchFilters,
+                size: 50
+            }
+
+            console.log("Search options:", searchOptions)
+
+            const response = await api.get<SearchResponse>('/tickets/search', {
+                params: searchOptions
+            })
+
+            console.log("Search response:", response.data)
+
+            if (response.data && response.data.hits) {
+                setTickets(response.data.hits)
+                setError(null)
+            } else {
+                console.log("No tickets found in search results")
+                setTickets([])
+            }
+        } catch (err) {
+            console.error('Error searching tickets:', err)
+            setError('Failed to search tickets')
+            fetchTickets()
+        } finally {
+            setSearching(false)
+        }
+    }
+
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            handleSearch(searchQuery)
+        }, 500)
+
+        return () => clearTimeout(timeoutId)
+    }, [searchQuery, searchFilters])
+
+    const SearchFiltersComponent = () => (
+        <div className="flex gap-2 items-center mt-2">
+            <Select
+                value={searchFilters.status}
+                onValueChange={(value: TicketStatus) =>
+                    setSearchFilters(prev => ({
+                        ...prev,
+                        status: value
+                    }))
+                }
+            >
+                <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="Open">Open</SelectItem>
+                    <SelectItem value="InProgress">In Progress</SelectItem>
+                    <SelectItem value="Closed">Closed</SelectItem>
+                    <SelectItem value="Resolved">Resolved</SelectItem>
+                </SelectContent>
+            </Select>
+
+            <Select
+                value={searchFilters.ticket_type}
+                onValueChange={(value) =>
+                    setSearchFilters(prev => ({
+                        ...prev,
+                        ticket_type: value as TicketType
+                    }))
+                }
+            >
+                <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value={TicketType.Malware}>{TicketType.Malware}</SelectItem>
+                    <SelectItem value={TicketType.Phishing}>{TicketType.Phishing}</SelectItem>
+                    <SelectItem value={TicketType.Scam}>{TicketType.Scam}</SelectItem>
+                    <SelectItem value={TicketType.Spam}>{TicketType.Spam}</SelectItem>
+                    <SelectItem value={TicketType.DDoS}>{TicketType.DDoS}</SelectItem>
+                    <SelectItem value={TicketType.Botnet}>{TicketType.Botnet}</SelectItem>
+                    <SelectItem value={TicketType.DataBreach}>{TicketType.DataBreach}</SelectItem>
+                    <SelectItem value={TicketType.IdentityTheft}>{TicketType.IdentityTheft}</SelectItem>
+                    <SelectItem value={TicketType.Ransomware}>{TicketType.Ransomware}</SelectItem>
+                    <SelectItem value={TicketType.CyberStalking}>{TicketType.CyberStalking}</SelectItem>
+                    <SelectItem value={TicketType.IntellectualPropertyTheft}>{TicketType.IntellectualPropertyTheft}</SelectItem>
+                    <SelectItem value={TicketType.Harassment}>{TicketType.Harassment}</SelectItem>
+                    <SelectItem value={TicketType.UnauthorizedAccess}>{TicketType.UnauthorizedAccess}</SelectItem>
+                    <SelectItem value={TicketType.CopyrightViolation}>{TicketType.CopyrightViolation}</SelectItem>
+                    <SelectItem value={TicketType.BruteForce}>{TicketType.BruteForce}</SelectItem>
+                    <SelectItem value={TicketType.C2}>{TicketType.C2}</SelectItem>
+                    <SelectItem value={TicketType.Other}>{TicketType.Other}</SelectItem>
+                </SelectContent>
+            </Select>
+
+            <div className="flex items-center space-x-2">
+                <Checkbox
+                    id="hasEmails"
+                    checked={searchFilters.has_emails}
+                    onCheckedChange={(checked) =>
+                        setSearchFilters(prev => ({
+                            ...prev,
+                            has_emails: checked as boolean
+                        }))
+                    }
+                />
+                <label
+                    htmlFor="hasEmails"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                    Has Emails
+                </label>
+            </div>
+        </div>
+    )
+
     return (
         <div className="flex h-full w-full bg-gray-100">
             <Sidebar isOpen={sidebarOpen} />
@@ -177,7 +348,23 @@ export default function TicketsPage() {
                             </Button>
                             <h1 className="text-xl font-semibold ml-4">Tickets</h1>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex gap-2 items-center">
+                            <div className="relative w-64">
+                                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Search tickets..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className={`pl-8 ${searching ? 'opacity-50' : ''}`}
+                                    disabled={searching}
+                                />
+                                {searching && (
+                                    <div className="absolute right-2 top-2">
+                                        <RefreshCw className="h-4 w-4 animate-spin" />
+                                    </div>
+                                )}
+                            </div>
+                            <SearchFiltersComponent />
                             <Button onClick={() => setShowCreateDialog(true)}>
                                 Create Ticket
                             </Button>

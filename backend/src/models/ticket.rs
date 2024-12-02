@@ -1,6 +1,8 @@
+use crate::models::es::{ESClient, ESError};
 use chrono::{DateTime, Utc};
 use deadpool_postgres::Pool;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tokio_postgres::Row;
 use uuid::Uuid;
 
@@ -160,12 +162,36 @@ pub enum TicketError {
 
     #[error("Validation error: {0}")]
     Validation(String),
+
+    #[error("ElasticSearch error: {0}")]
+    ES(#[from] ESError),
 }
 
 impl From<deadpool_postgres::PoolError> for TicketError {
     fn from(error: deadpool_postgres::PoolError) -> Self {
         TicketError::Pool(error.to_string())
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchFilters {
+    pub status: Option<TicketStatus>,
+    pub ticket_type: Option<TicketType>,
+    pub has_emails: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchOptions {
+    pub query: String,
+    pub filters: Option<SearchFilters>,
+    pub from: Option<usize>,
+    pub size: Option<usize>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchResponse {
+    pub hits: Vec<Ticket>,
+    pub total: u64,
 }
 
 impl Ticket {
@@ -233,7 +259,14 @@ impl Ticket {
             )
             .await?;
 
-        Ok(row.get("id"))
+        let ticket_id = row.get("id");
+
+        // Index to ElasticSearch
+        if let Err(e) = self.index_to_es().await {
+            log::error!("Failed to index ticket to ElasticSearch: {}", e);
+        }
+
+        Ok(ticket_id)
     }
 
     /// Add an email to this ticket
@@ -263,6 +296,23 @@ impl Ticket {
             )
             .await?;
 
+        // Update ElasticSearch
+        let es_client = ESClient::new()
+            .await
+            .map_err(|e| TicketError::Pool(e.to_string()))?;
+        if let Err(e) = es_client
+            .update_document(
+                "tickets",
+                &self.id.to_string(),
+                &json!({
+                    "email_ids": self.email_ids
+                }),
+            )
+            .await
+        {
+            log::error!("Failed to update ticket in ElasticSearch: {}", e);
+        }
+
         Ok(())
     }
 
@@ -284,6 +334,23 @@ impl Ticket {
             )));
         }
 
+        // Update ElasticSearch
+        let es_client = ESClient::new()
+            .await
+            .map_err(|e| TicketError::Pool(e.to_string()))?;
+        if let Err(e) = es_client
+            .update_document(
+                "tickets",
+                &self.id.to_string(),
+                &json!({
+                    "email_ids": self.email_ids
+                }),
+            )
+            .await
+        {
+            log::error!("Failed to update ticket in ElasticSearch: {}", e);
+        }
+
         Ok(())
     }
 
@@ -302,6 +369,24 @@ impl Ticket {
                 &[&status.to_string(), &self.id],
             )
             .await?;
+
+        // Update ElasticSearch
+        let es_client = ESClient::new()
+            .await
+            .map_err(|e| TicketError::Pool(e.to_string()))?;
+        if let Err(e) = es_client
+            .update_document(
+                "tickets",
+                &self.id.to_string(),
+                &json!({
+                    "status": status.to_string(),
+                    "updated_at": row.get::<_, DateTime<Utc>>("updated_at")
+                }),
+            )
+            .await
+        {
+            log::error!("Failed to update ticket in ElasticSearch: {}", e);
+        }
 
         self.status = status;
         self.updated_at = row.get("updated_at");
@@ -444,5 +529,109 @@ impl Ticket {
             .await?;
 
         Ok(())
+    }
+
+    pub async fn search(options: SearchOptions) -> Result<SearchResponse, TicketError> {
+        let client = ESClient::new().await?;
+
+        let mut query = json!({
+            "bool": {
+                "must": [{
+                    "multi_match": {
+                        "query": options.query,
+                        "fields": ["subject^2", "description", "ip_address"],
+                        "fuzziness": "AUTO"
+                    }
+                }],
+                "filter": []
+            }
+        });
+
+        // Add filters if provided
+        if let Some(filters) = options.filters {
+            if let Some(status) = filters.status {
+                query["bool"]["filter"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(json!({"term": {"status.keyword": status.to_string()}}));
+            }
+
+            if let Some(ticket_type) = filters.ticket_type {
+                query["bool"]["filter"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(json!({"term": {"ticket_type.keyword": ticket_type.to_string()}}));
+            }
+
+            if let Some(has_emails) = filters.has_emails {
+                query["bool"]["filter"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(if has_emails {
+                        json!({
+                            "exists": {
+                                "field": "email_ids"
+                            }
+                        })
+                    } else {
+                        json!({
+                            "bool": {
+                                "must_not": {
+                                    "exists": {
+                                        "field": "email_ids"
+                                    }
+                                }
+                            }
+                        })
+                    });
+            }
+        }
+
+        log::debug!(
+            "Search query: {}",
+            serde_json::to_string_pretty(&query).unwrap()
+        );
+
+        let search_body = json!({
+            "query": query,
+            "sort": [{ "created_at": { "order": "desc" } }],
+            "from": options.from.unwrap_or(0),
+            "size": options.size.unwrap_or(50)
+        });
+
+        let result = client.search::<Ticket>("tickets", search_body).await?;
+
+        Ok(SearchResponse {
+            hits: result.hits,
+            total: result.total,
+        })
+    }
+
+    // Add this method to index tickets in ElasticSearch
+    pub async fn index_to_es(&self) -> Result<(), TicketError> {
+        let client = ESClient::new()
+            .await
+            .map_err(|e| TicketError::Pool(e.to_string()))?;
+
+        let document = json!({
+            "id": self.id,
+            "ticket_type": self.ticket_type.to_string(),
+            "status": self.status.to_string(),
+            "ip_address": self.ip_address,
+            "subject": self.subject,
+            "description": self.description,
+            "confidence_score": self.confidence_score,
+            "identified_threats": self.identified_threats,
+            "extracted_indicators": self.extracted_indicators,
+            "analysis_summary": self.analysis_summary,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "email_ids": self.email_ids
+        });
+
+        client
+            .index_document("tickets", &self.id.to_string(), &document)
+            .await
+            .map_err(|e| TicketError::Pool(e.to_string()))
     }
 }

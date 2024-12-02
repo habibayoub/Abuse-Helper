@@ -86,7 +86,6 @@ pub struct SearchOptions {
 pub struct SearchResponse {
     pub hits: Vec<Email>,
     pub total: u64,
-    pub suggestions: Vec<String>,
 }
 
 impl Email {
@@ -620,22 +619,20 @@ impl Email {
         let client = ESClient::new().await?;
 
         let mut query = json!({
-            "query": {
-                "multi_match": {
-                    "query": options.query,
-                    "fields": ["subject^2", "body", "sender", "recipients"],
-                    "fuzziness": "AUTO"
-                }
-            },
-            "sort": [{ "received_at": { "order": "desc" } }],
-            "from": options.from.unwrap_or(0),
-            "size": options.size.unwrap_or(50)
+            "bool": {
+                "must": [{
+                    "multi_match": {
+                        "query": options.query,
+                        "fields": ["subject^2", "body", "sender", "recipients"],
+                        "fuzziness": "AUTO"
+                    }
+                }],
+                "filter": []
+            }
         });
 
         // Add filters if provided
         if let Some(filters) = options.filters {
-            log::debug!("Applying filters: {:?}", filters);
-
             if let Some(is_sent) = filters.is_sent {
                 query["bool"]["filter"]
                     .as_array_mut()
@@ -644,26 +641,41 @@ impl Email {
             }
 
             if let Some(has_tickets) = filters.has_tickets {
-                query["bool"]["filter"].as_array_mut().unwrap().push(json!({
-                    "script": {
-                        "script": {
-                            "source": if has_tickets {
-                                "doc['ticket_ids'].length > 0"
-                            } else {
-                                "doc['ticket_ids'].length == 0"
+                query["bool"]["filter"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(if has_tickets {
+                        json!({
+                            "exists": {
+                                "field": "ticket_ids"
                             }
-                        }
-                    }
-                }));
+                        })
+                    } else {
+                        json!({
+                            "bool": {
+                                "must_not": {
+                                    "exists": {
+                                        "field": "ticket_ids"
+                                    }
+                                }
+                            }
+                        })
+                    });
             }
         }
 
-        let result = client.search::<Email>("emails", query).await?;
+        let search_body = json!({
+            "query": query,
+            "sort": [{ "received_at": { "order": "desc" } }],
+            "from": options.from.unwrap_or(0),
+            "size": options.size.unwrap_or(50)
+        });
+
+        let result = client.search::<Email>("emails", search_body).await?;
 
         Ok(SearchResponse {
             hits: result.hits,
             total: result.total,
-            suggestions: vec![],
         })
     }
 }

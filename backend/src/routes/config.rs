@@ -61,7 +61,8 @@ pub fn configure_routes() -> Scope {
                         .service(routes::ticket::add_email_to_ticket)
                         .service(routes::ticket::remove_email_from_ticket)
                         .service(routes::ticket::get_ticket_emails)
-                        .service(routes::ticket::get_ticket),
+                        .service(routes::ticket::get_ticket)
+                        .service(routes::ticket::search_tickets),
                 ),
         )
 }

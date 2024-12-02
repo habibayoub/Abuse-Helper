@@ -163,32 +163,65 @@ impl ESClient {
             .is_success();
 
         if !exists {
-            let mapping = json!({
-                "settings": {
-                    "analysis": {
-                        "analyzer": {
-                            "email_analyzer": {
-                                "type": "custom",
-                                "tokenizer": "standard",
-                                "filter": ["lowercase", "stop", "snowball"]
+            let mapping = match index {
+                "emails" => json!({
+                    "settings": {
+                        "analysis": {
+                            "analyzer": {
+                                "email_analyzer": {
+                                    "type": "custom",
+                                    "tokenizer": "standard",
+                                    "filter": ["lowercase", "stop", "snowball"]
+                                }
                             }
                         }
+                    },
+                    "mappings": {
+                        "properties": {
+                            "id": { "type": "keyword" },
+                            "sender": { "type": "text", "analyzer": "email_analyzer" },
+                            "recipients": { "type": "text", "analyzer": "email_analyzer" },
+                            "subject": { "type": "text", "analyzer": "email_analyzer" },
+                            "body": { "type": "text", "analyzer": "email_analyzer" },
+                            "received_at": { "type": "date" },
+                            "analyzed": { "type": "boolean" },
+                            "is_sent": { "type": "boolean" },
+                            "ticket_ids": { "type": "keyword" }
+                        }
                     }
-                },
-                "mappings": {
-                    "properties": {
-                        "id": { "type": "keyword" },
-                        "sender": { "type": "text", "analyzer": "email_analyzer" },
-                        "recipients": { "type": "text", "analyzer": "email_analyzer" },
-                        "subject": { "type": "text", "analyzer": "email_analyzer" },
-                        "body": { "type": "text", "analyzer": "email_analyzer" },
-                        "received_at": { "type": "date" },
-                        "analyzed": { "type": "boolean" },
-                        "is_sent": { "type": "boolean" },
-                        "ticket_ids": { "type": "keyword" }
+                }),
+                "tickets" => json!({
+                    "settings": {
+                        "analysis": {
+                            "analyzer": {
+                                "ticket_analyzer": {
+                                    "type": "custom",
+                                    "tokenizer": "standard",
+                                    "filter": ["lowercase", "stop", "snowball"]
+                                }
+                            }
+                        }
+                    },
+                    "mappings": {
+                        "properties": {
+                            "id": { "type": "keyword" },
+                            "ticket_type": { "type": "keyword" },
+                            "status": { "type": "keyword" },
+                            "ip_address": { "type": "ip" },
+                            "subject": { "type": "text", "analyzer": "ticket_analyzer" },
+                            "description": { "type": "text", "analyzer": "ticket_analyzer" },
+                            "confidence_score": { "type": "float" },
+                            "identified_threats": { "type": "keyword" },
+                            "extracted_indicators": { "type": "keyword" },
+                            "analysis_summary": { "type": "text", "analyzer": "ticket_analyzer" },
+                            "created_at": { "type": "date" },
+                            "updated_at": { "type": "date" },
+                            "email_ids": { "type": "keyword" }
+                        }
                     }
-                }
-            });
+                }),
+                _ => return Err(ESError::InvalidInput("Invalid index name".to_string())),
+            };
 
             self.client
                 .indices()

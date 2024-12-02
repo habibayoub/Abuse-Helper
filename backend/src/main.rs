@@ -80,8 +80,16 @@ async fn populate_test_emails() -> Result<(), String> {
 }
 
 async fn init_elasticsearch() -> Result<(), Box<dyn std::error::Error>> {
+    log::info!("Initializing ElasticSearch indices...");
     let client = ESClient::new().await?;
+
+    log::info!("Creating/updating email index...");
     client.ensure_index("emails").await?;
+
+    log::info!("Creating/updating ticket index...");
+    client.ensure_index("tickets").await?;
+
+    log::info!("ElasticSearch indices initialized successfully");
     Ok(())
 }
 
@@ -94,17 +102,22 @@ async fn cleanup_database(pool: &Pool) -> Result<(), Box<dyn std::error::Error>>
     client.execute("DELETE FROM emails", &[]).await?;
     client.execute("DELETE FROM tickets", &[]).await?;
 
-    // Delete and recreate the Elasticsearch index
+    // Delete and recreate the Elasticsearch indices
     let es_client = ESClient::new().await?;
 
-    // Delete the index if it exists
+    // Delete indices if they exist
     let _ = es_client
         .delete_index("emails")
         .await
-        .map_err(|e| log::warn!("Failed to delete index: {}", e));
+        .map_err(|e| log::warn!("Failed to delete emails index: {}", e));
+    let _ = es_client
+        .delete_index("tickets")
+        .await
+        .map_err(|e| log::warn!("Failed to delete tickets index: {}", e));
 
-    // Create the index with proper mappings
+    // Create indices with proper mappings
     es_client.ensure_index("emails").await?;
+    es_client.ensure_index("tickets").await?;
 
     log::info!("Database cleanup completed");
     Ok(())

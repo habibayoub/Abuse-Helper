@@ -322,7 +322,10 @@ pub async fn search_emails(query: web::Query<SearchOptions>) -> HttpResponse {
     log::debug!("Search request: {:?}", search_options);
 
     match Email::search(search_options).await {
-        Ok(response) => HttpResponse::Ok().json(response),
+        Ok(response) => {
+            log::debug!("Search found {} results", response.hits.len());
+            HttpResponse::Ok().json(response)
+        }
         Err(e) => {
             log::error!("Failed to search emails: {}", e);
             HttpResponse::InternalServerError().json(e.to_string())
