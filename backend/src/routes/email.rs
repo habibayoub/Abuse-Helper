@@ -1,4 +1,4 @@
-use crate::models::email::{Email, EmailError, OutgoingEmail};
+use crate::models::email::{Email, EmailError, OutgoingEmail, SearchOptions};
 use actix_web::{delete, get, post, put, web, HttpResponse};
 use deadpool_postgres::Pool;
 use uuid::Uuid;
@@ -310,6 +310,21 @@ pub async fn force_delete_email(pool: web::Data<Pool>, path: web::Path<Uuid>) ->
         }
         Err(e) => {
             log::error!("Failed to fetch email {}: {}", email_id, e);
+            HttpResponse::InternalServerError().json(e.to_string())
+        }
+    }
+}
+
+/// Search emails
+#[get("/search")]
+pub async fn search_emails(query: web::Query<SearchOptions>) -> HttpResponse {
+    let search_options = query.into_inner();
+    log::debug!("Search request: {:?}", search_options);
+
+    match Email::search(search_options).await {
+        Ok(response) => HttpResponse::Ok().json(response),
+        Err(e) => {
+            log::error!("Failed to search emails: {}", e);
             HttpResponse::InternalServerError().json(e.to_string())
         }
     }

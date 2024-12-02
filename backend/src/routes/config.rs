@@ -49,7 +49,8 @@ pub fn configure_routes() -> Scope {
                         .service(routes::email::get_email_tickets)
                         .service(routes::email::link_to_ticket)
                         .service(routes::email::unlink_from_ticket)
-                        .service(routes::email::force_delete_email),
+                        .service(routes::email::force_delete_email)
+                        .service(routes::email::search_emails),
                 )
                 .service(
                     web::scope("/tickets")

@@ -1,4 +1,5 @@
 use crate::llm::analyze_threat;
+use crate::models::es::{ESClient, ESError};
 use crate::models::ticket::Ticket;
 use chrono::{DateTime, Utc};
 use deadpool_postgres::Pool;
@@ -6,6 +7,7 @@ use futures::future;
 use lettre::{message::header::ContentType, message::Mailbox, AsyncTransport, Message};
 use mailparse::{parse_mail, MailHeaderMap};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::env;
 use tokio_postgres::Row;
 use uuid::Uuid;
@@ -59,6 +61,32 @@ pub enum EmailError {
     /// Connection pool errors
     #[error("Pool error: {0}")]
     Pool(String),
+
+    /// ElasticSearch errors
+    #[error("ElasticSearch error: {0}")]
+    ES(#[from] ESError),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchFilters {
+    pub is_sent: Option<bool>,
+    pub analyzed: Option<bool>,
+    pub has_tickets: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchOptions {
+    pub query: String,
+    pub filters: Option<SearchFilters>,
+    pub from: Option<usize>,
+    pub size: Option<usize>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchResponse {
+    pub hits: Vec<Email>,
+    pub total: u64,
+    pub suggestions: Vec<String>,
 }
 
 impl Email {
@@ -67,6 +95,7 @@ impl Email {
         log::info!("Marking email {} as analyzed", self.id);
         let client = pool.get().await?;
 
+        // Update in database
         client
             .execute(
                 "UPDATE emails SET analyzed = TRUE WHERE id = $1",
@@ -74,6 +103,21 @@ impl Email {
             )
             .await
             .map_err(|e| EmailError::Pool(e.to_string()))?;
+
+        // Update in ElasticSearch
+        let es_client = ESClient::new().await?;
+        if let Err(e) = es_client
+            .update_document(
+                "emails",
+                &self.id.to_string(),
+                &json!({
+                    "analyzed": true
+                }),
+            )
+            .await
+        {
+            log::error!("Failed to update email in ElasticSearch: {}", e);
+        }
 
         self.analyzed = true;
         Ok(())
@@ -399,6 +443,11 @@ impl Email {
             .await
             .map_err(|e| EmailError::Database(e))?;
 
+        // Index to ElasticSearch
+        if let Err(e) = self.index_to_es().await {
+            log::error!("Failed to index email to ElasticSearch: {}", e);
+        }
+
         Ok(())
     }
 
@@ -490,7 +539,7 @@ impl Email {
         let mut client = pool.get().await?;
         let tx = client.transaction().await?;
 
-        // Remove all ticket associations
+        // Remove from database
         if let Err(e) = tx
             .execute("DELETE FROM email_tickets WHERE email_id = $1", &[&self.id])
             .await
@@ -499,7 +548,6 @@ impl Email {
             return Err(EmailError::Database(e));
         }
 
-        // Delete the email
         if let Err(e) = tx
             .execute("DELETE FROM emails WHERE id = $1", &[&self.id])
             .await
@@ -508,11 +556,17 @@ impl Email {
             return Err(EmailError::Database(e));
         }
 
-        // Commit the transaction
-        if let Err(e) = tx.commit().await {
-            return Err(EmailError::Database(e));
+        // Remove from ElasticSearch
+        let es_client = ESClient::new().await?;
+        if let Err(e) = es_client
+            .delete_document("emails", &self.id.to_string())
+            .await
+        {
+            let _ = tx.rollback().await;
+            return Err(EmailError::ES(e));
         }
 
+        tx.commit().await?;
         Ok(())
     }
 
@@ -539,6 +593,78 @@ impl Email {
             }
             None => Err(EmailError::Validation(format!("Email {} not found", id))),
         }
+    }
+
+    /// Index this email to ElasticSearch
+    pub async fn index_to_es(&self) -> Result<(), ESError> {
+        let client = ESClient::new().await?;
+
+        let document = json!({
+            "id": self.id,
+            "sender": self.sender,
+            "recipients": self.recipients,
+            "subject": self.subject,
+            "body": self.body,
+            "received_at": self.received_at,
+            "analyzed": self.analyzed,
+            "is_sent": self.is_sent,
+            "ticket_ids": self.ticket_ids
+        });
+
+        client
+            .index_document("emails", &self.id.to_string(), &document)
+            .await
+    }
+
+    pub async fn search(options: SearchOptions) -> Result<SearchResponse, EmailError> {
+        let client = ESClient::new().await?;
+
+        let mut query = json!({
+            "query": {
+                "multi_match": {
+                    "query": options.query,
+                    "fields": ["subject^2", "body", "sender", "recipients"],
+                    "fuzziness": "AUTO"
+                }
+            },
+            "sort": [{ "received_at": { "order": "desc" } }],
+            "from": options.from.unwrap_or(0),
+            "size": options.size.unwrap_or(50)
+        });
+
+        // Add filters if provided
+        if let Some(filters) = options.filters {
+            log::debug!("Applying filters: {:?}", filters);
+
+            if let Some(is_sent) = filters.is_sent {
+                query["bool"]["filter"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(json!({"term": {"is_sent": is_sent}}));
+            }
+
+            if let Some(has_tickets) = filters.has_tickets {
+                query["bool"]["filter"].as_array_mut().unwrap().push(json!({
+                    "script": {
+                        "script": {
+                            "source": if has_tickets {
+                                "doc['ticket_ids'].length > 0"
+                            } else {
+                                "doc['ticket_ids'].length == 0"
+                            }
+                        }
+                    }
+                }));
+            }
+        }
+
+        let result = client.search::<Email>("emails", query).await?;
+
+        Ok(SearchResponse {
+            hits: result.hits,
+            total: result.total,
+            suggestions: vec![],
+        })
     }
 }
 
