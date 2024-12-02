@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { format } from "date-fns"
-import { Eye, Menu, Mail, Send, Ticket } from "lucide-react"
+import { Eye, Menu, Mail, Send, Ticket, Search, RefreshCw } from "lucide-react"
 import Sidebar from '@/components/layout/Sidebar';
 import {
     Dialog,
@@ -18,6 +18,7 @@ import api from '@/lib/axios'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Link } from "react-router-dom"
+import { Checkbox } from "@/components/ui/checkbox"
 
 // Define the Email interface based on the backend model
 interface Email {
@@ -45,6 +46,23 @@ interface SendEmailRequest {
     body: string;
 }
 
+interface SearchFilters {
+    has_tickets?: boolean;
+    is_sent?: boolean;
+}
+
+interface SearchOptions {
+    query: string;
+    filters?: SearchFilters;
+    from?: number;
+    size?: number;
+}
+
+interface SearchResponse {
+    hits: Email[];
+    total: number;
+}
+
 export default function EmailsPage() {
     const [emails, setEmails] = useState<Email[]>([])
     const [loading, setLoading] = useState(true)
@@ -54,6 +72,9 @@ export default function EmailsPage() {
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
     const [refreshing, setRefreshing] = useState(false);
     const [isReply, setIsReply] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("")
+    const [searching, setSearching] = useState(false)
+    const [searchFilters, setSearchFilters] = useState<SearchFilters>({})
 
     useEffect(() => {
         fetchEmails();
@@ -120,6 +141,7 @@ export default function EmailsPage() {
             await fetchEmails();
             reset();
             setError(null);
+            setIsReply(false);
         } catch (err) {
             console.error('Error sending email:', err);
             setError('Failed to send email');
@@ -147,7 +169,7 @@ export default function EmailsPage() {
                     </tr>
                 </thead>
                 <tbody className="bg-white divide-y">
-                    {emails.map((email) => (
+                    {emails && emails.map((email) => (
                         <tr key={email.id} className="text-gray-700">
                             <td className="px-4 py-3">
                                 <code className="bg-gray-100 px-2 py-1 rounded text-sm">
@@ -187,7 +209,7 @@ export default function EmailsPage() {
                             </td>
                             <td className="px-4 py-3">
                                 <div className="flex gap-2">
-                                    <Dialog onOpenChange={(open) => !open && setSelectedEmail(null)}>
+                                    <Dialog>
                                         <DialogTrigger asChild>
                                             <Button
                                                 variant="outline"
@@ -255,11 +277,84 @@ export default function EmailsPage() {
                 </tbody>
             </table>
 
-            {emails.length === 0 && (
+            {(!emails || emails.length === 0) && (
                 <div className="text-center py-4 text-gray-500">
                     No emails found
                 </div>
             )}
+        </div>
+    )
+
+    const handleSearch = async (query: string, isInSentTab: boolean) => {
+        if (!query.trim() && !searchFilters.has_tickets) {
+            fetchEmails()
+            return
+        }
+
+        setSearching(true)
+        try {
+            const searchOptions: SearchOptions = {
+                query: query.trim(),
+                filters: {
+                    ...searchFilters,
+                    is_sent: isInSentTab
+                },
+                size: 50
+            }
+
+            console.log("Search options:", searchOptions)
+
+            const response = await api.get<SearchResponse>('/email/search', {
+                params: searchOptions
+            })
+
+            console.log("Search response:", response.data)
+
+            if (response.data && response.data.hits) {
+                setEmails(response.data.hits)
+                setError(null)
+            } else {
+                console.log("No emails found in search results")
+                setEmails([])
+            }
+        } catch (err) {
+            console.error('Error searching emails:', err)
+            setError('Failed to search emails')
+        } finally {
+            setSearching(false)
+        }
+    }
+
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            const activeTab = document.querySelector('[data-state="active"]')?.getAttribute('value')
+            const isInSentTab = activeTab === 'sent'
+            handleSearch(searchQuery, isInSentTab)
+        }, 500)
+
+        return () => clearTimeout(timeoutId)
+    }, [searchQuery, searchFilters])
+
+    const SearchFiltersComponent = () => (
+        <div className="flex gap-2 items-center mt-2">
+            <div className="flex items-center space-x-2">
+                <Checkbox
+                    id="hasTickets"
+                    checked={searchFilters.has_tickets}
+                    onCheckedChange={(checked) =>
+                        setSearchFilters(prev => ({
+                            ...prev,
+                            has_tickets: checked as boolean
+                        }))
+                    }
+                />
+                <label
+                    htmlFor="hasTickets"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                    Has Tickets
+                </label>
+            </div>
         </div>
     )
 
@@ -291,10 +386,26 @@ export default function EmailsPage() {
                                     <div>
                                         <CardTitle className="text-xl font-bold">Email Inbox</CardTitle>
                                         <p className="text-sm text-muted-foreground">
-                                            Showing {emails.length} received emails
+                                            {searching ? "Searching..." : `Showing ${emails.length} emails`}
                                         </p>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 items-center">
+                                        <div className="relative w-64">
+                                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                placeholder="Search emails..."
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                className={`pl-8 ${searching ? 'opacity-50' : ''}`}
+                                                disabled={searching}
+                                            />
+                                            {searching && (
+                                                <div className="absolute right-2 top-2">
+                                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <SearchFiltersComponent />
                                         <Dialog open={isReply} onOpenChange={(open) => !open && handleDialogClose()}>
                                             <DialogTrigger asChild>
                                                 <Button variant="default">

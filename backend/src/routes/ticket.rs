@@ -1,5 +1,5 @@
 use crate::models::requests::{AddEmailRequest, CreateTicketRequest, CreateTicketResponse};
-use crate::models::ticket::{Ticket, TicketError, TicketStatus, TicketType};
+use crate::models::ticket::{SearchOptions, Ticket, TicketError, TicketStatus, TicketType};
 use actix_web::{delete, get, post, put, web, HttpResponse};
 use deadpool_postgres::Pool;
 use uuid::Uuid;
@@ -281,6 +281,24 @@ pub async fn get_ticket(pool: web::Data<Pool>, path: web::Path<Uuid>) -> HttpRes
         }
         Err(e) => {
             log::error!("Failed to find ticket {}: {}", id, e);
+            HttpResponse::InternalServerError().json(e.to_string())
+        }
+    }
+}
+
+/// Search tickets
+#[get("/search")]
+pub async fn search_tickets(query: web::Query<SearchOptions>) -> HttpResponse {
+    let search_options = query.into_inner();
+    log::debug!("Search request: {:?}", search_options);
+
+    match Ticket::search(search_options).await {
+        Ok(response) => {
+            log::debug!("Search found {} results", response.hits.len());
+            HttpResponse::Ok().json(response)
+        }
+        Err(e) => {
+            log::error!("Failed to search tickets: {}", e);
             HttpResponse::InternalServerError().json(e.to_string())
         }
     }

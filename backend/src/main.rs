@@ -5,8 +5,10 @@ mod models;
 mod postgres;
 mod routes;
 
+use crate::models::es::ESClient;
 use crate::postgres::run_migrations;
 use actix_web::{web, App, HttpServer};
+use deadpool_postgres::Pool;
 use env_logger::Env;
 use lettre::{message::header::ContentType, message::Mailbox, AsyncTransport, Message};
 use log;
@@ -77,6 +79,50 @@ async fn populate_test_emails() -> Result<(), String> {
     Ok(())
 }
 
+async fn init_elasticsearch() -> Result<(), Box<dyn std::error::Error>> {
+    log::info!("Initializing ElasticSearch indices...");
+    let client = ESClient::new().await?;
+
+    log::info!("Creating/updating email index...");
+    client.ensure_index("emails").await?;
+
+    log::info!("Creating/updating ticket index...");
+    client.ensure_index("tickets").await?;
+
+    log::info!("ElasticSearch indices initialized successfully");
+    Ok(())
+}
+
+async fn cleanup_database(pool: &Pool) -> Result<(), Box<dyn std::error::Error>> {
+    log::info!("Cleaning up database...");
+    let client = pool.get().await?;
+
+    // Delete in correct order to handle foreign key constraints
+    client.execute("DELETE FROM email_tickets", &[]).await?;
+    client.execute("DELETE FROM emails", &[]).await?;
+    client.execute("DELETE FROM tickets", &[]).await?;
+
+    // Delete and recreate the Elasticsearch indices
+    let es_client = ESClient::new().await?;
+
+    // Delete indices if they exist
+    let _ = es_client
+        .delete_index("emails")
+        .await
+        .map_err(|e| log::warn!("Failed to delete emails index: {}", e));
+    let _ = es_client
+        .delete_index("tickets")
+        .await
+        .map_err(|e| log::warn!("Failed to delete tickets index: {}", e));
+
+    // Create indices with proper mappings
+    es_client.ensure_index("emails").await?;
+    es_client.ensure_index("tickets").await?;
+
+    log::info!("Database cleanup completed");
+    Ok(())
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Set up logging with filter for tokenizers warnings
@@ -97,9 +143,27 @@ async fn main() -> std::io::Result<()> {
         ));
     }
 
+    // Clean up database
+    if let Err(e) = cleanup_database(&pg_pool).await {
+        log::error!("Failed to clean up database: {}", e);
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Database cleanup failed",
+        ));
+    }
+
     // Populate test emails
     if let Err(e) = populate_test_emails().await {
         log::error!("Failed to populate test emails: {}", e);
+    }
+
+    // Initialize ElasticSearch
+    if let Err(e) = init_elasticsearch().await {
+        log::error!("Failed to initialize ElasticSearch: {}", e);
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "ElasticSearch initialization failed",
+        ));
     }
 
     // Start the Actix server
