@@ -59,8 +59,33 @@ Abuse-Helper is a comprehensive security incident management system designed to 
 1. Ensure Docker and Docker Compose are installed
 2. Clone the repository
 3. In the project root, run the Docker Compose file to pull dependencies and start the containers:
-```
+```shell
 docker compose up --build
 ```
 3. Visit http://localhost:8080 and create an "admin" (admin@example.com:admin123) user in the Abuse-Helper realm with the [admin, user] roles
-4. Log into the frontend using the above credentials
+4. Visit http://localhost:3000 to get to the login page
+5. Log into the frontend using the above credentials
+
+## API
+
+Example Login Request
+```http
+POST /api/auth/login
+Content-Type: application/json
+{
+"email": "user@example.com",
+"password": "your_password"
+}
+```
+Example Login Response
+```json
+{
+"token": "eyJhbGciOiJIUzI1NiIs...",
+"expires_in": 3600
+}
+```
+Example Authenticated Request
+```http
+GET /api/email/list
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
