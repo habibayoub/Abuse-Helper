@@ -2,9 +2,28 @@ use super::{client::LLMClient, parser, threat_analysis::ThreatAnalysis};
 use log;
 use ollama_rs::generation::completion::request::GenerationRequest;
 
+/// Performs security threat analysis on provided text using LLM.
+///
+/// Uses a local LLaMA model to analyze text for potential security threats,
+/// extracting indicators like URLs, IPs, and suspicious patterns.
+///
+/// # Arguments
+/// * `text` - Content to analyze
+///
+/// # Returns
+/// * `ThreatAnalysis` - Structured analysis results
+/// * `String` - Error message if analysis fails
+///
+/// # Example
+/// ```
+/// let analysis = analyze_threat("suspicious content").await?;
+/// println!("Threat type: {}", analysis.threat_type);
+/// ```
 pub async fn analyze_threat(text: &str) -> Result<ThreatAnalysis, String> {
+    // Initialize LLM client
     let client = LLMClient::new()?;
-    
+
+    // Define system prompt for threat analysis
     let prompt = format!(
         r#"<|im_start|>system
 You are a security threat analyzer. You will analyze the content provided and MUST respond with a single JSON object.
@@ -31,8 +50,10 @@ Respond with a single JSON object in this EXACT format (MAKE SURE THERE ARE NO T
 <|im_start|>assistant"#
     );
 
+    // Configure and execute LLM request
     let request = GenerationRequest::new("llama3.2:1b".to_string(), prompt);
 
+    // Process response, logging any errors
     let response = client.get_client().generate(request).await.map_err(|e| {
         log::error!("Failed to generate response: {}", e);
         format!("Failed to generate response: {}", e)

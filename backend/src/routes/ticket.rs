@@ -5,11 +5,35 @@ use deadpool_postgres::Pool;
 use uuid::Uuid;
 
 /// Create a new ticket
+///
+/// # Endpoint
+/// POST /tickets/create
+///
+/// # Request Body
+/// ```json
+/// {
+///   "ticket_type": "INCIDENT",
+///   "subject": "Security Incident",
+///   "description": "Detailed description",
+///   "email_ids": ["uuid1", "uuid2"],
+///   "confidence_score": 0.85,
+///   "identified_threats": ["malware", "phishing"],
+///   "extracted_indicators": ["ip:192.168.1.1"],
+///   "analysis_summary": "Threat analysis details"
+/// }
+/// ```
+///
+/// # Returns
+/// - 201: Ticket created successfully
+/// - 200: Ticket created with some email link failures
+/// - 400: Validation error
+/// - 500: Database error
 #[post("/create")]
 pub async fn create_ticket(
     pool: web::Data<Pool>,
     ticket_req: web::Json<CreateTicketRequest>,
 ) -> HttpResponse {
+    // Extract the ticket data
     let ticket_data = ticket_req.into_inner();
 
     // Validate the request
@@ -32,6 +56,7 @@ pub async fn create_ticket(
 
     // If no emails to link, use simple save
     if ticket_data.email_ids.is_empty() {
+        // Save the ticket
         match ticket.save(&pool).await {
             Ok(ticket_id) => {
                 log::info!("Created standalone ticket {}", ticket_id);
@@ -124,16 +149,32 @@ pub async fn create_ticket(
 }
 
 /// Add an email to a ticket
+///
+/// # Endpoint
+/// POST /tickets/{id}/emails
+///
+/// # Path Parameters
+/// - id: Ticket UUID
+///
+/// # Request Body
+/// ```json
+/// {
+///   "email_id": "123e4567-e89b-12d3-a456-426614174000"
+/// }
+/// ```
 #[post("/{id}/emails")]
 pub async fn add_email_to_ticket(
     pool: web::Data<Pool>,
     path: web::Path<Uuid>,
     email_req: web::Json<AddEmailRequest>,
 ) -> HttpResponse {
+    // Extract the ticket and email IDs
     let ticket_id = path.into_inner();
     let email_id = email_req.email_id;
 
+    // Find the ticket
     match Ticket::find_by_id(&pool, ticket_id).await {
+        // If the ticket exists, add the email
         Ok(Some(ticket)) => match ticket.add_email(&pool, &email_id).await {
             Ok(_) => {
                 log::info!("Added email {} to ticket {}", email_id, ticket_id);
@@ -160,14 +201,24 @@ pub async fn add_email_to_ticket(
 }
 
 /// Remove an email from a ticket
+///
+/// # Endpoint
+/// DELETE /tickets/{id}/emails/{email_id}
+///
+/// # Path Parameters
+/// - id: Ticket UUID
+/// - email_id: Email UUID to remove
 #[delete("/{id}/emails/{email_id}")]
 pub async fn remove_email_from_ticket(
     pool: web::Data<Pool>,
     path: web::Path<(Uuid, Uuid)>,
 ) -> HttpResponse {
+    // Extract the ticket and email IDs
     let (ticket_id, email_id) = path.into_inner();
 
+    // Find the ticket
     match Ticket::find_by_id(&pool, ticket_id).await {
+        // If the ticket exists, remove the email
         Ok(Some(ticket)) => match ticket.remove_email(&pool, &email_id).await {
             Ok(_) => {
                 log::info!("Removed email {} from ticket {}", email_id, ticket_id);
@@ -193,12 +244,24 @@ pub async fn remove_email_from_ticket(
     }
 }
 
-/// Get all emails for a ticket
+/// Get all emails associated with a ticket
+///
+/// # Endpoint
+/// GET /tickets/{id}/emails
+///
+/// # Path Parameters
+/// - id: Ticket UUID
+///
+/// # Returns
+/// Array of email UUIDs as strings
 #[get("/{id}/emails")]
 pub async fn get_ticket_emails(pool: web::Data<Pool>, path: web::Path<Uuid>) -> HttpResponse {
+    // Extract the ticket ID
     let ticket_id = path.into_inner();
 
+    // Find the ticket
     match Ticket::find_by_id(&pool, ticket_id).await {
+        // If the ticket exists, get the emails
         Ok(Some(ticket)) => match ticket.get_emails(&pool).await {
             Ok(emails) => {
                 let email_strings: Vec<String> = emails.iter().map(|id| id.to_string()).collect();
@@ -221,9 +284,16 @@ pub async fn get_ticket_emails(pool: web::Data<Pool>, path: web::Path<Uuid>) -> 
     }
 }
 
-/// List all tickets
+/// List all tickets in the system
+///
+/// # Endpoint
+/// GET /tickets/list
+///
+/// # Returns
+/// Array of ticket objects with full details
 #[get("/list")]
 pub async fn list_tickets(pool: web::Data<Pool>) -> HttpResponse {
+    // List all tickets
     match Ticket::list_all(&pool).await {
         Ok(tickets) => {
             log::info!("Retrieved {} tickets", tickets.len());
@@ -237,16 +307,28 @@ pub async fn list_tickets(pool: web::Data<Pool>) -> HttpResponse {
 }
 
 /// Update ticket status
+///
+/// # Endpoint
+/// PUT /tickets/{id}/status
+///
+/// # Path Parameters
+/// - id: Ticket UUID
+///
+/// # Request Body
+/// String representing new status (e.g., "OPEN", "CLOSED")
 #[put("/{id}/status")]
 pub async fn update_ticket_status(
     pool: web::Data<Pool>,
     path: web::Path<Uuid>,
     status: web::Json<String>,
 ) -> HttpResponse {
+    // Extract the ticket ID and new status
     let id = path.into_inner();
     let new_status = TicketStatus::from(status.into_inner());
 
+    // Find the ticket
     match Ticket::find_by_id(&pool, id).await {
+        // If the ticket exists, update the status
         Ok(Some(mut ticket)) => match ticket.update_status(&pool, new_status).await {
             Ok(_) => {
                 log::info!("Updated ticket {} status to {:?}", id, new_status);
@@ -269,10 +351,21 @@ pub async fn update_ticket_status(
 }
 
 /// Get a single ticket by ID
+///
+/// # Endpoint
+/// GET /tickets/{id}
+///
+/// # Path Parameters
+/// - id: Ticket UUID
+///
+/// # Returns
+/// Complete ticket object with all fields
 #[get("/{id}")]
 pub async fn get_ticket(pool: web::Data<Pool>, path: web::Path<Uuid>) -> HttpResponse {
+    // Extract the ticket ID
     let id = path.into_inner();
 
+    // Find the ticket
     match Ticket::find_by_id(&pool, id).await {
         Ok(Some(ticket)) => HttpResponse::Ok().json(ticket),
         Ok(None) => {
@@ -286,12 +379,29 @@ pub async fn get_ticket(pool: web::Data<Pool>, path: web::Path<Uuid>) -> HttpRes
     }
 }
 
-/// Search tickets
+/// Search tickets based on various criteria
+///
+/// # Endpoint
+/// GET /tickets/search
+///
+/// # Query Parameters
+/// - q: Search query string
+/// - status: Filter by status
+/// - type: Filter by ticket type
+/// - from: Pagination offset
+/// - size: Page size
+/// - sort: Sort field
+/// - order: Sort direction
+///
+/// # Returns
+/// Paginated search results with metadata
 #[get("/search")]
 pub async fn search_tickets(query: web::Query<SearchOptions>) -> HttpResponse {
+    // Extract the search options
     let search_options = query.into_inner();
     log::debug!("Search request: {:?}", search_options);
 
+    // Search for tickets
     match Ticket::search(search_options).await {
         Ok(response) => {
             log::debug!("Search found {} results", response.hits.len());

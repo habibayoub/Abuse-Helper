@@ -6,25 +6,45 @@ use serde_json::json;
 use tokio_postgres::Row;
 use uuid::Uuid;
 
-/// Types of security incidents that can be reported
+/// Types of security incidents that can be reported.
+///
+/// Comprehensive enumeration of security incident categories
+/// for classification and tracking purposes.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum TicketType {
+    /// Malicious software detection
     Malware,
+    /// Social engineering attempts
     Phishing,
+    /// Fraudulent activities
     Scam,
+    /// Unsolicited bulk messages
     Spam,
+    /// Distributed Denial of Service attacks
     DDoS,
+    /// Botnet activity detection
     Botnet,
+    /// Information exposure incidents
     DataBreach,
+    /// Personal identity compromise
     IdentityTheft,
+    /// Encryption-based extortion
     Ransomware,
+    /// Online harassment via technology
     CyberStalking,
+    /// IP rights violations
     IntellectualPropertyTheft,
+    /// Digital harassment cases
     Harassment,
+    /// System access violations
     UnauthorizedAccess,
+    /// Rights infringement
     CopyrightViolation,
+    /// Password attack attempts
     BruteForce,
+    /// Command and Control activity
     C2,
+    /// Uncategorized incidents
     Other,
 }
 
@@ -77,11 +97,18 @@ impl From<String> for TicketType {
     }
 }
 
+/// Ticket processing status indicators.
+///
+/// Tracks the lifecycle stage of security incident tickets.
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum TicketStatus {
+    /// Initial state, awaiting processing
     Open,
+    /// Currently being investigated
     InProgress,
+    /// Investigation completed
     Closed,
+    /// Issue successfully addressed
     Resolved,
 }
 
@@ -114,6 +141,25 @@ impl Default for TicketStatus {
     }
 }
 
+/// Core ticket data structure.
+///
+/// Represents a security incident ticket with full metadata
+/// and relationship tracking.
+///
+/// # Fields
+/// * `id` - Unique identifier
+/// * `ticket_type` - Incident classification
+/// * `status` - Current processing status
+/// * `ip_address` - Related IP address
+/// * `subject` - Brief incident description
+/// * `description` - Detailed incident information
+/// * `confidence_score` - Threat assessment confidence (0.0-1.0)
+/// * `identified_threats` - Detected threat indicators
+/// * `extracted_indicators` - Security-relevant data points
+/// * `analysis_summary` - Threat analysis results
+/// * `created_at` - Creation timestamp
+/// * `updated_at` - Last modification timestamp
+/// * `email_ids` - Associated email identifiers
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Ticket {
     pub id: Uuid,
@@ -152,6 +198,15 @@ impl From<Row> for Ticket {
     }
 }
 
+/// Comprehensive error type for ticket operations.
+///
+/// Handles all potential failure modes in ticket processing pipeline.
+///
+/// # Categories
+/// - Database errors
+/// - Connection pool errors
+/// - Validation failures
+/// - Elasticsearch errors
 #[derive(Debug, thiserror::Error)]
 pub enum TicketError {
     #[error("Database error: {0}")]
@@ -173,6 +228,14 @@ impl From<deadpool_postgres::PoolError> for TicketError {
     }
 }
 
+/// Search filter criteria for ticket queries.
+///
+/// Enables flexible ticket searching with multiple filter options.
+///
+/// # Fields
+/// * `status` - Filter by processing status
+/// * `ticket_type` - Filter by incident type
+/// * `has_emails` - Filter by email association
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchFilters {
     pub status: Option<TicketStatus>,
@@ -195,7 +258,17 @@ pub struct SearchResponse {
 }
 
 impl Ticket {
-    /// Create a new ticket
+    /// Creates a new ticket instance.
+    ///
+    /// # Arguments
+    /// * `ticket_type` - Incident classification
+    /// * `subject` - Brief description
+    /// * `description` - Detailed information
+    /// * `ip_address` - Related IP
+    /// * `confidence_score` - Threat confidence
+    /// * `identified_threats` - Detected threats
+    /// * `extracted_indicators` - Security indicators
+    /// * `analysis_summary` - Analysis results
     pub fn new(
         ticket_type: TicketType,
         subject: String,
@@ -223,7 +296,13 @@ impl Ticket {
         }
     }
 
-    /// Save ticket to database
+    /// Persists ticket to database and search index.
+    ///
+    /// # Arguments
+    /// * `pool` - Database connection pool
+    ///
+    /// # Returns
+    /// * `Result<Uuid, TicketError>` - Ticket ID or error
     pub async fn save(&self, pool: &Pool) -> Result<Uuid, TicketError> {
         log::info!("Saving ticket {}", self.id);
         let client = pool.get().await?;
@@ -239,6 +318,7 @@ impl Ticket {
             )
             .await?;
 
+        // Execute the insert statement
         let row = client
             .query_one(
                 &stmt,
@@ -269,7 +349,14 @@ impl Ticket {
         Ok(ticket_id)
     }
 
-    /// Add an email to this ticket
+    /// Associates an email with the ticket.
+    ///
+    /// # Arguments
+    /// * `pool` - Database connection pool
+    /// * `email_id` - Email to associate
+    ///
+    /// # Returns
+    /// * `Result<(), TicketError>` - Success or error
     pub async fn add_email(&self, pool: &Pool, email_id: &Uuid) -> Result<(), TicketError> {
         let client = pool.get().await?;
 
@@ -282,6 +369,7 @@ impl Ticket {
             .await?
             .get::<_, bool>(0);
 
+        // If the email does not exist, return an error
         if !email_exists {
             return Err(TicketError::Validation(format!(
                 "Email {} does not exist",
@@ -289,6 +377,7 @@ impl Ticket {
             )));
         }
 
+        // Insert the email association into the database
         client
             .execute(
                 "INSERT INTO email_tickets (email_id, ticket_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
@@ -300,6 +389,8 @@ impl Ticket {
         let es_client = ESClient::new()
             .await
             .map_err(|e| TicketError::Pool(e.to_string()))?;
+
+        // Update the ElasticSearch document with the new email association
         if let Err(e) = es_client
             .update_document(
                 "tickets",
@@ -316,10 +407,18 @@ impl Ticket {
         Ok(())
     }
 
-    /// Remove an email from this ticket
+    /// Removes an email association.
+    ///
+    /// # Arguments
+    /// * `pool` - Database connection pool
+    /// * `email_id` - Email to disassociate
+    ///
+    /// # Returns
+    /// * `Result<(), TicketError>` - Success or error
     pub async fn remove_email(&self, pool: &Pool, email_id: &Uuid) -> Result<(), TicketError> {
         let client = pool.get().await?;
 
+        // Delete the email association from the database
         let result = client
             .execute(
                 "DELETE FROM email_tickets WHERE email_id = $1 AND ticket_id = $2",
@@ -327,6 +426,7 @@ impl Ticket {
             )
             .await?;
 
+        // If the email association was not found, return an error
         if result == 0 {
             return Err(TicketError::Validation(format!(
                 "Email {} is not linked to ticket {}",
@@ -338,6 +438,8 @@ impl Ticket {
         let es_client = ESClient::new()
             .await
             .map_err(|e| TicketError::Pool(e.to_string()))?;
+
+        // Update the ElasticSearch document to remove the email association
         if let Err(e) = es_client
             .update_document(
                 "tickets",
@@ -354,7 +456,14 @@ impl Ticket {
         Ok(())
     }
 
-    /// Update ticket status
+    /// Updates ticket processing status.
+    ///
+    /// # Arguments
+    /// * `pool` - Database connection pool
+    /// * `status` - New status
+    ///
+    /// # Returns
+    /// * `Result<(), TicketError>` - Success or error
     pub async fn update_status(
         &mut self,
         pool: &Pool,
@@ -363,6 +472,7 @@ impl Ticket {
         log::info!("Updating ticket {} status to {:?}", self.id, status);
         let client = pool.get().await?;
 
+        // Update the ticket status in the database
         let row = client
             .query_one(
                 "UPDATE tickets SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING updated_at",
@@ -374,6 +484,8 @@ impl Ticket {
         let es_client = ESClient::new()
             .await
             .map_err(|e| TicketError::Pool(e.to_string()))?;
+
+        // Update the ElasticSearch document with the new status
         if let Err(e) = es_client
             .update_document(
                 "tickets",
@@ -393,7 +505,13 @@ impl Ticket {
         Ok(())
     }
 
-    /// Get all emails associated with this ticket
+    /// Retrieves associated email IDs.
+    ///
+    /// # Arguments
+    /// * `pool` - Database connection pool
+    ///
+    /// # Returns
+    /// * `Result<Vec<Uuid>, TicketError>` - Email IDs or error
     pub async fn get_emails(&self, pool: &Pool) -> Result<Vec<Uuid>, TicketError> {
         let client = pool.get().await?;
 
@@ -407,11 +525,18 @@ impl Ticket {
         Ok(rows.iter().map(|row| row.get("email_id")).collect())
     }
 
-    /// List all tickets with their associated emails
+    /// Retrieves all tickets with associations.
+    ///
+    /// # Arguments
+    /// * `pool` - Database connection pool
+    ///
+    /// # Returns
+    /// * `Result<Vec<Ticket>, TicketError>` - All tickets or error
     pub async fn list_all(pool: &Pool) -> Result<Vec<Ticket>, TicketError> {
         log::info!("Fetching all tickets");
         let client = pool.get().await?;
 
+        // Fetch all tickets with associated emails
         let rows = client
             .query(
                 "SELECT t.*, COALESCE(array_agg(et.email_id) FILTER (WHERE et.email_id IS NOT NULL), ARRAY[]::uuid[]) as email_ids 
@@ -423,6 +548,7 @@ impl Ticket {
             )
             .await?;
 
+        // Convert rows to tickets
         let tickets: Vec<Ticket> = rows
             .iter()
             .map(|row| {
@@ -435,11 +561,19 @@ impl Ticket {
         Ok(tickets)
     }
 
-    /// Find ticket by ID with associated emails
+    /// Finds a specific ticket by ID.
+    ///
+    /// # Arguments
+    /// * `pool` - Database connection pool
+    /// * `id` - Ticket identifier
+    ///
+    /// # Returns
+    /// * `Result<Option<Ticket>, TicketError>` - Found ticket or error
     pub async fn find_by_id(pool: &Pool, id: Uuid) -> Result<Option<Ticket>, TicketError> {
         log::info!("Finding ticket {}", id);
         let client = pool.get().await?;
 
+        // Fetch the ticket with associated emails
         let row = client
             .query_opt(
                 "SELECT t.*, COALESCE(array_agg(et.email_id) FILTER (WHERE et.email_id IS NOT NULL), ARRAY[]::uuid[]) as email_ids 
@@ -451,6 +585,7 @@ impl Ticket {
             )
             .await?;
 
+        // Convert row to ticket
         Ok(row.map(|r| {
             let mut ticket = Ticket::from(r.clone());
             ticket.email_ids = r.get("email_ids");
@@ -465,6 +600,7 @@ impl Ticket {
     ) -> Result<Uuid, TicketError> {
         log::info!("Saving ticket {}", self.id);
 
+        // Insert the ticket into the database
         let stmt = client
             .prepare(
                 "INSERT INTO tickets (
@@ -476,6 +612,7 @@ impl Ticket {
             )
             .await?;
 
+        // Execute the insert statement
         let row = client
             .query_one(
                 &stmt,
@@ -514,6 +651,7 @@ impl Ticket {
             .await?
             .get::<_, bool>(0);
 
+        // If the email does not exist, return an error
         if !email_exists {
             return Err(TicketError::Validation(format!(
                 "Email {} does not exist",
@@ -521,6 +659,7 @@ impl Ticket {
             )));
         }
 
+        // Insert the email association into the database
         client
             .execute(
                 "INSERT INTO email_tickets (email_id, ticket_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
@@ -531,9 +670,17 @@ impl Ticket {
         Ok(())
     }
 
+    /// Searches tickets using Elasticsearch.
+    ///
+    /// # Arguments
+    /// * `options` - Search criteria and filters
+    ///
+    /// # Returns
+    /// * `Result<SearchResponse, TicketError>` - Search results or error
     pub async fn search(options: SearchOptions) -> Result<SearchResponse, TicketError> {
         let client = ESClient::new().await?;
 
+        // Build the search query
         let mut query = json!({
             "bool": {
                 "must": [{
@@ -556,6 +703,7 @@ impl Ticket {
                     .push(json!({"term": {"status.keyword": status.to_string()}}));
             }
 
+            // Add ticket type filter if provided
             if let Some(ticket_type) = filters.ticket_type {
                 query["bool"]["filter"]
                     .as_array_mut()
@@ -563,6 +711,7 @@ impl Ticket {
                     .push(json!({"term": {"ticket_type.keyword": ticket_type.to_string()}}));
             }
 
+            // Add email filter if provided
             if let Some(has_emails) = filters.has_emails {
                 query["bool"]["filter"]
                     .as_array_mut()
@@ -592,6 +741,7 @@ impl Ticket {
             serde_json::to_string_pretty(&query).unwrap()
         );
 
+        // Build the search body
         let search_body = json!({
             "query": query,
             "sort": [{ "created_at": { "order": "desc" } }],
@@ -599,6 +749,7 @@ impl Ticket {
             "size": options.size.unwrap_or(50)
         });
 
+        // Execute the search
         let result = client.search::<Ticket>("tickets", search_body).await?;
 
         Ok(SearchResponse {
@@ -607,12 +758,17 @@ impl Ticket {
         })
     }
 
-    // Add this method to index tickets in ElasticSearch
+    /// Indexes ticket in Elasticsearch.
+    ///
+    /// # Returns
+    /// * `Result<(), TicketError>` - Success or error
     pub async fn index_to_es(&self) -> Result<(), TicketError> {
+        // Create a new Elasticsearch client
         let client = ESClient::new()
             .await
             .map_err(|e| TicketError::Pool(e.to_string()))?;
 
+        // Build the document to index
         let document = json!({
             "id": self.id,
             "ticket_type": self.ticket_type.to_string(),
@@ -629,6 +785,7 @@ impl Ticket {
             "email_ids": self.email_ids
         });
 
+        // Index the document
         client
             .index_document("tickets", &self.id.to_string(), &document)
             .await
