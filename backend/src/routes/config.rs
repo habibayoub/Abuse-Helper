@@ -2,13 +2,64 @@ use crate::middleware::Auth;
 use crate::routes;
 use actix_web::{get, web, HttpResponse, Scope};
 
-/// GET /status endpoint to check if the server is alive
+/// Server health check endpoint
+///
+/// # Endpoint
+/// GET /status
+///
+/// # Returns
+/// - 200 OK with "alive" message
+///
+/// # Example Request
+/// ```bash
+/// curl http://api.example.com/status
+/// ```
+///
+/// # Example Response
+/// ```json
+/// "alive"
+/// ```
 #[get("status")]
 async fn api_status() -> HttpResponse {
-    // Return a 200 OK response with a simple message
     HttpResponse::Ok().json("alive")
 }
 
+/// Configures all application routes and their middleware.
+///
+/// # Route Groups
+///
+/// ## Public Routes
+/// - `GET /status` - Server health check
+/// - `POST /auth/login` - User authentication
+/// - `POST /auth/refresh` - Token refresh
+/// - `POST /auth/exchange` - Token exchange
+///
+/// ## Protected Routes (Requires Authentication)
+/// - `POST /auth/logout` - User logout
+///
+/// ## Admin Routes
+/// - `/customer/*` - Customer management
+/// - `/email/*` - Email operations
+///
+/// ## User Routes
+/// - `/nctns/*` - Security notifications
+/// - `/util/*` - Utility functions
+/// - `/tickets/*` - Ticket management
+///
+/// # Middleware Configuration
+/// - Authentication required for protected routes
+/// - Role-based access for admin/user routes
+/// - Scoped middleware application
+///
+/// # Example URL Structure
+/// ```text
+/// /status                     -> Health check
+/// /auth/login                 -> Authentication
+/// /customer/list              -> List customers (admin)
+/// /email/send                 -> Send email (admin)
+/// /tickets/create_ticket      -> Create ticket (user)
+/// /nctns/list                -> List notifications (user)
+/// ```
 pub fn configure_routes() -> Scope {
     web::scope("")
         .service(api_status)
