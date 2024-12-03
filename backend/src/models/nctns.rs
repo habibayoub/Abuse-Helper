@@ -2,7 +2,41 @@ use chrono::{DateTime, Utc};
 use tokio_postgres::{Error, GenericClient, Row};
 use uuid::Uuid;
 
-/// Struct representing a row in the nctns table.
+/// Network and Cyber Threat Notification System Record
+///
+/// Represents a comprehensive security event or threat notification.
+///
+/// # Fields
+/// * `uuid` - Unique identifier for the notification
+/// * `source_time` - Original event timestamp from source
+/// * `time` - Event processing timestamp
+/// * `ip` - Source IP address
+/// * `reverse_dns` - Reverse DNS lookup result
+/// * `domain_name` - Associated domain name
+/// * `asn` - Autonomous System Number
+/// * `as_name` - Autonomous System Name
+/// * `category` - Threat category classification
+/// * `type_` - Specific threat type
+/// * `malware_family` - Associated malware family if applicable
+/// * `vulnerability` - Related vulnerability identifier
+/// * `tag` - Custom classification tag
+/// * `source_name` - Notification source identifier
+/// * `comment` - Additional notes or comments
+/// * `description` - Detailed threat description
+/// * `description_url` - Reference URL for threat details
+/// * `destination_ip` - Target IP address
+/// * `destination_port` - Target port number
+/// * `port` - Source port number
+/// * `protocol` - Application protocol
+/// * `transport_protocol` - Network transport protocol
+/// * `http_request` - HTTP request details if applicable
+/// * `user_agent` - User agent string if applicable
+/// * `username` - Associated username if available
+/// * `url` - Related URL
+/// * `destination_domain_name` - Target domain name
+/// * `status` - Current notification status
+/// * `observation_time` - Time of observation
+/// * `source_feed` - Origin threat feed identifier
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct NCTNS {
     pub uuid: Uuid,
@@ -37,8 +71,16 @@ pub struct NCTNS {
     pub source_feed: String,
 }
 
-/// Implement the `From<Row>` trait for `NCTNS`.
-/// This allows us to convert a `tokio_postgres::Row` into a `NCTNS`.
+/// Database Row Conversion Implementation
+///
+/// Enables automatic conversion from database query results to NCTNS instances.
+/// Maps column indices to struct fields based on the standard query structure.
+///
+/// # Column Mapping
+/// 0. uuid
+/// 1. source_time
+/// 2. time
+/// ... (continues for all fields in order)
 impl From<Row> for NCTNS {
     fn from(row: Row) -> Self {
         Self {
@@ -76,9 +118,24 @@ impl From<Row> for NCTNS {
     }
 }
 
-/// Implement the `NCTNS` struct.
-/// Methods on the `NCTNS` struct allow us to interact with the database.
+/// NCTNS Database Operations Implementation
+///
+/// Provides methods for interacting with the NCTNS database table.
+/// Supports querying and managing notification records.
 impl NCTNS {
+    /// Retrieves all NCTNS records from the database.
+    ///
+    /// # Type Parameters
+    /// * `C` - Database client type implementing GenericClient
+    ///
+    /// # Arguments
+    /// * `client` - Database connection client
+    ///
+    /// # Returns
+    /// * `Result<Vec<NCTNS>, Error>` - List of all notifications or database error
+    ///
+    /// # Database Schema
+    /// Requires table 'nctns' with all fields matching struct definition
     pub async fn all<C: GenericClient + Sync>(client: &C) -> Result<Vec<NCTNS>, Error> {
         let stmt = client
             .prepare("SELECT uuid, source_time, time, ip, reverse_dns, domain_name, asn, as_name, category, type, malware_family, vulnerability, tag, source_name, comment, description, description_url, destination_ip, destination_port, port, protocol, transport_protocol, http_request, user_agent, username, url, destination_domain_name, status, observation_time, source_feed FROM nctns")
