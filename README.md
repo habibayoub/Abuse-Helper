@@ -66,6 +66,38 @@ docker compose up --build
 4. Visit http://localhost:3000 to get to the login page
 5. Log into the frontend using the above credentials
 
+## Docker
+
+### Containers
+
+| Service | Image | Description | Ports |
+|---------|-------|-------------|-------|
+| frontend | node:18 | React application | 3000 |
+| backend | rust:1.70 | Actix Web API | 8000 |
+| postgres | postgres:15 | Main database | 5432 |
+| elasticsearch | elasticsearch:8.7.1 | Search engine | 9200 |
+| keycloak | keycloak:21.1 | Authentication | 8080 |
+| keycloak-db | postgres:15 | Keycloak database | 5432 |
+| mailserver | greenmail:2.0.0 | Email testing | 3025, 3993 |
+| llm | ollama:latest | AI processing | 11434 |
+
+### Volumes
+
+| Volume | Service | Purpose |
+|--------|---------|---------|
+| postgres-data | postgres | Database persistence |
+| elasticsearch-data | elasticsearch | Search index storage |
+| keycloak-data | keycloak | Auth server data |
+| llm-data | llm | Model storage |
+
+### Networks
+
+| Network | Purpose | Connected Services |
+|---------|---------|-------------------|
+| frontend-network | Frontend isolation | frontend |
+| backend-network | Backend services | All except frontend |
+
+
 ## API
 
 Example Login Request
